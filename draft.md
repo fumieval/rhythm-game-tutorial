@@ -57,7 +57,7 @@ You will see white 640*480 window -- nothing more.
 
 Now, think of very simple game: There's a circle, and another circle is approaching, You just touch　when the another circle overlapped the original one. How do we implement this? 
 
-Let's draw a circle.
+Let's draw a circle for now.
 
 ```haskell
 import FreeGame
@@ -65,6 +65,6 @@ import FreeGame
 main = runGameDefault $ foreverFrame $ translate (V2 320 240) $ color blue $ circleOutline 48
 ```
 
-From right to left, "A circle with a radius of 48, the color is blue, translate this thing to (320, 240), repeat forever, run as a game."
+From right to left, "A circle with a radius of 48, the color is blue, translate this thing to (320, 240), repeat forever, run as a game." Yes, free-game offers functional but imperative APIs. 
 
-Yes, free-game offers functional but imperative APIs. 
+Uh-oh, it's really quiet. Let's sound something groovy!
