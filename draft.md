@@ -12,7 +12,7 @@ This tutorial focuses on creating a rhythm game without the pain of manipulating
 
 This tutorial has two parts.
 
-* In Part I, let us make a very simple rhythm game. We use the free-game engine to develop.
+* In Part I, let us make a very simple rhythm game. We use the Call engine to develop.
 * Part II introduces some technical backgrounds (graphics, signal processing, lens and so on) that support Part I.
 
 I'd be happy if this tutorial helps your curiosity to create a game.
@@ -39,18 +39,16 @@ Rewrite `WASAPI` according to your choice. If you choosed WASAPI, leave it as is
 
 If it fails, please check if the development library for the backend (e.g. libasound2-dev) is installed. If it throws up something messy, please report to [the GitHub repository](https://github.com/fumieval/bindings-portaudio/issues).
 
-Then let's install `free-game`.
+Then let's install `call`.
 
-> $ cabal install free-game
-
-Installing free-game is easy if your cabal environment is fresh. If your environment is old, please consider using `cabal sandbox` or flush out your `~/.cabal`.
+> $ cabal install call
 
 Creating a window is very EASY.
 
 ```haskell
-import FreeGame
+import Call
 
-main = runGameDefault $ foreverFrame $ return ()
+main = runSystemDefault stand
 ```
 
 You will see a white 640*480 window -- nothing more.
@@ -60,13 +58,26 @@ Now, think of a very simple game: There's a circle, and another circle is approa
 Let's draw a circle for now.
 
 ```haskell
-import FreeGame
+import Call
 
-main = runGameDefault $ foreverFrame $ translate (V2 320 240) $ color blue $ circleOutline 48
+main = runSystemDefault $ do
+    animate $ \_ -> translate (V2 320 240) $ color blue $ circleOutline 48
+    wait
 ```
 
 ![fig1](images/fig1.png)
 
-From right to left, "A circle with a radius of 48, the color is blue, translate this thing to (320, 240), repeat forever, run as a game." Yes, free-game offers functional but imperative APIs. 
+From right to left, "A circle with a radius of 48, the color is blue, translate this thing to (320, 240)" Yes, Call offers functional but imperative APIs. 
 
-Uh-oh, it's really quiet. Let's sound something groovy!
+But it's really quiet. Let's sound something groovy!
+
+```haskell
+import Call
+
+main = runSystemDefault $ do
+    m <- readWAVE "test.ogg"
+    withSound m stand
+
+```
+
+`withSound` is a function that plays the supplied sound while running the given action. `stand` waits indefinitely. It is easy to combine the graphical thing with the music -- Just replace `stand` with something to draw.
