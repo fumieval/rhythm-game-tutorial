@@ -61,7 +61,8 @@ Let's draw a circle for now.
 import Call
 
 main = runSystemDefault $ do
-    animate $ \_ -> translate (V2 320 240) $ color blue $ circleOutline 48
+    k <- new $ animate $ \_ -> translate (V2 320 240) $ color blue $ circleOutline 48
+    linkGraphic k
     wait
 ```
 
@@ -80,4 +81,5 @@ main = runSystemDefault $ do
 
 ```
 
-`withSound` is a function that plays the supplied sound while running the given action. `stand` waits indefinitely. It is easy to combine the graphical thing with the music -- Just replace `stand` with something to draw.
+`withSound` is a function that plays the supplied sound while running an action. `stand` waits indefinitely. It is easy to combine the graphical thing with the music -- Just replace `stand` with something to draw.
+
