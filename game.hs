@@ -12,6 +12,7 @@ import Data.List (transpose)
 import Control.Arrow
 import Data.Maybe
 import Data.Monoid
+import System.Environment
 
 center = translate (V2 320 360)
 
@@ -34,8 +35,8 @@ pop :: Bitmap -> Object Graphic Maybe
 pop bmp = transit 0.5 $ \t -> center $ translate (V2 0 (-80) ^* t) $ opacity (realToFrac $ 1 - t) $ bitmap bmp
 
 gameCore :: Lift (Stack Graphic) e
-  => [S.Set Time] -> AddrS Deck.Methods s -> AddrS e s -> ObjS Keyboard s
-gameCore notes deck effects = liftO $ accept $ \case
+  => [S.Set Time] -> AddrS Deck.Methods s -> AddrS Deck.Methods s -> AddrS Deck.Methods s -> AddrS e s -> ObjS Keyboard s
+gameCore notes clapper clapper' deck effects = liftO $ accept $ \case
   Down k -> do
     i <- case k of
       KeyF -> effects .<< flash (rotateD 45 $ translate (V2 0 (-100)) $ bitmap _glow_orange_png) >> return 0
@@ -50,8 +51,14 @@ gameCore notes deck effects = liftO $ accept $ \case
           (_, Just (b, _)) -> t - b
           _ -> 1
     if
-      | dt < 0.05 -> effects .<< pop _perfect_png
-      | dt < 0.10 -> effects .<< pop _good_png
+      | dt < 0.05 -> do
+        effects .<< pop _perfect_png
+        clapper .& Deck.pos .= 0
+        clapper .& Deck.playing .= True
+      | dt < 0.10 -> do
+        effects .<< pop _good_png
+        clapper' .& Deck.pos .= 0
+        clapper' .& Deck.playing .= True
       | otherwise -> effects .<< pop _error_png
   _ -> return ()
 
@@ -77,14 +84,24 @@ parseScore d = map (S.fromAscList . concat . zipWith (map . (+)) [0,d..]) . tran
   f l = [t | (t, c) <- zip [0, d/fromIntegral (length l)..] l, c == '.']
 
 main = runSystemDefault $ do
+  [read -> start] <- liftIO getArgs
   score <- liftIO $ parseScore (60/160*4)<$> readFile "Monoidal Purity.txt"
   deck <- new Deck.empty
+  clapper <- new Deck.empty
+  clapper' <- new Deck.empty
   s <- new stacker
   linkGraphic s
-  new (gameCore score deck s) >>= linkKeyboard
+  new (gameCore score clapper clapper' deck s) >>= linkKeyboard
   new (musicView score deck) >>= linkGraphic
   linkAudio deck
+  linkAudio clapper
+  linkAudio clapper'
   wav <- readWAVE "Monoidal Purity.wav"
+  clap <- readWAVE "clap.wav"
+  clap' <- readWAVE "clap1.wav"
+  deck .& Deck.pos .= start
   deck .& Deck.source ?= wav
   deck .& Deck.playing .= True
+  clapper .& Deck.source ?= clap
+  clapper' .& Deck.source ?= clap'
   stand
