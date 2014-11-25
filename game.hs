@@ -89,6 +89,12 @@ main = runSystemDefault $ do
   deck <- new Deck.empty
   clapper <- new Deck.empty
   clapper' <- new Deck.empty
+  wav <- readWAVE "Monoidal Purity.wav"
+  clap <- readWAVE "clap.wav"
+  clap' <- readWAVE "clap1.wav"
+  deck .& Deck.source ?= wav
+  clapper .& Deck.source ?= clap
+  clapper' .& Deck.source ?= clap'
   s <- new stacker
   linkGraphic s
   new (gameCore score clapper clapper' deck s) >>= linkKeyboard
@@ -96,12 +102,8 @@ main = runSystemDefault $ do
   linkAudio deck
   linkAudio clapper
   linkAudio clapper'
-  wav <- readWAVE "Monoidal Purity.wav"
-  clap <- readWAVE "clap.wav"
-  clap' <- readWAVE "clap1.wav"
+
   deck .& Deck.pos .= start
-  deck .& Deck.source ?= wav
   deck .& Deck.playing .= True
-  clapper .& Deck.source ?= clap
-  clapper' .& Deck.source ?= clap'
+
   stand

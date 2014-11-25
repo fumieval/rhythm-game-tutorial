@@ -43,43 +43,79 @@ Then let's install `call`.
 
 > $ cabal install call
 
-Creating a window is very EASY.
+Now, think of a very simple game: There's a circle, and another circle(s) is approaching. You touch　in exact timing when the another circle overlapped the original one. How do we implement this? 
+
+First, express timings as a list of time. Given timings and "life span" of circles, we can compute positions of visible circles from the current time.
 
 ```haskell
-import Call
-
-main = runSystemDefault stand
+phases :: [Time] -- ^ timings
+    -> Time -- ^ life span
+    -> Time -- ^ the current time
+    -> [Float] -- ^ phase
 ```
 
-You will see a white 640*480 window -- nothing more.
+I prepared a music and [Time]. Let's knit them into a game.
 
-Now, think of a very simple game: There's a circle, and another circle is approaching. You just touch　when the another circle overlapped the original one. How do we implement this? 
+First, create a function to render circles.
 
-Let's draw a circle for now.
+```haskell
+circles :: [Float] -> Picture
+circles = foldMap (\p -> V2 320 ((1 - p) * 480)  `translate` circleOutline 48)
+```
+
+```
+renderGame :: [Time] -> Time -> Picture
+renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
+    , translate (V2 320 480) `translate` color black (circleOutline 48)]
+```
+
+Putting them together. It is easy, isn't it?
 
 ```haskell
 import Call
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Control.Monad.State
+import Data.Foldable (foldMap)
+
+phases :: Set Time -- ^ timings
+    -> Time -- ^ life span
+    -> Time -- ^ the current time
+    -> [Float] -- ^ phase
+phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
+  $ Set.toList
+  $ fst $ Set.split (t + len) -- before the limit
+  $ snd $ Set.split t s -- after the current time
+
+renderGame :: Set Time -> Time -> Picture
+renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
+    , V2 320 480 `translate` color black (circleOutline 48)]
+
+circles :: [Float] -> Picture
+circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` circleOutline 48)
+
+timings :: Set Time
+timings = Set.fromList $ concat $ zipWith (\t ch -> [t | ch == '*'])
+  (iterate (+(60/160/2)) 1) -- the list of timings where circles may spawn
+  "*-*******-*-*-*-" -- asterisk indicates that a circle can spawn
 
 main = runSystemDefault $ do
-    k <- new $ animate $ \_ -> translate (V2 320 240) $ color blue $ circleOutline 48
-    linkGraphic k
-    wait
+  time <- new $ variable 0
+  linkPicture $ \dt -> do
+    t <- time .- get
+    time .- put (t + dt)
+    return $ renderGame timings t
+  stand
 ```
 
-![fig1](images/fig1.png)
-
-From right to left, "A circle with a radius of 48, the color is blue, translate this thing to (320, 240)" Yes, Call offers functional but imperative APIs. 
-
-But it's really quiet. Let's sound something groovy!
+It's time to get it to interact. `call` provides `linkKeyboard` which takes a handler.
 
 ```haskell
-import Call
-
-main = runSystemDefault $ do
-    m <- readWAVE "test.ogg"
-    withSound m stand
-
+linkKeyboard :: (Chatter Key -> System s ()) -> System s ()
 ```
 
-`withSound` is a function that plays the supplied sound while running an action. `stand` waits indefinitely. It is easy to combine the graphical thing with the music -- Just replace `stand` with something to draw.
+`Key` is wrapped by `Chatter`, to indicate that a key is pressed, or released. In other words, it is a _vertical_ Either, where the original Either is about left and right.
 
+```haskell
+data Chatter a = Up a | Down a
+```
