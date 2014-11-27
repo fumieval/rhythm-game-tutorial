@@ -39,7 +39,7 @@ Rewrite `WASAPI` according to your choice. If you choosed WASAPI, leave it as is
 
 If it fails, please check if the development library for the backend (e.g. libasound2-dev) is installed. If it throws up something messy, please report to [the GitHub repository](https://github.com/fumieval/bindings-portaudio/issues).
 
-Then let's install `call`.
+Then install `call`.
 
 > $ cabal install call
 
@@ -52,70 +52,70 @@ phases :: [Time] -- ^ timings
     -> Time -- ^ life span
     -> Time -- ^ the current time
     -> [Float] -- ^ phase
-```
-
-I prepared a music and [Time]. Let's knit them into a game.
-
-First, create a function to render circles.
-
-```haskell
-circles :: [Float] -> Picture
-circles = foldMap (\p -> V2 320 ((1 - p) * 480)  `translate` circleOutline 48)
-```
-
-```
-renderGame :: [Time] -> Time -> Picture
-renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
-    , translate (V2 320 480) `translate` color black (circleOutline 48)]
-```
-
-Putting them together. It is easy, isn't it?
-
-```haskell
-import Call
-import Data.Set (Set)
-import qualified Data.Set as Set
-import Control.Monad.State
-import Data.Foldable (foldMap)
-
-phases :: Set Time -- ^ timings
-    -> Time -- ^ life span
-    -> Time -- ^ the current time
-    -> [Float] -- ^ phase
 phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
   $ Set.toList
   $ fst $ Set.split (t + len) -- before the limit
-  $ snd $ Set.split t s -- after the current time
+```
 
-renderGame :: Set Time -> Time -> Picture
-renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
-    , V2 320 480 `translate` color black (circleOutline 48)]
+First, create a function to render circles. Since 'Picture' is a monoid, we can use `foldMap` to do that.
 
+```haskell
 circles :: [Float] -> Picture
 circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` circleOutline 48)
+```
 
-timings :: Set Time
-timings = Set.fromList $ concat $ zipWith (\t ch -> [t | ch == '*'])
-  (iterate (+(60/160/2)) 1) -- the list of timings where circles may spawn
-  "*-*******-*-*-*-" -- asterisk indicates that a circle can spawn
+`renderGames` passes the result of `phases` into `circles`.
 
+```haskell
+renderGame :: [Time] -> Time -> Picture
+renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
+    , translate (V2 320 480) `translate` color black (circleOutline 48) -- criterion
+    ]
+```
+
+`new $ variable x` instantiates mutable variable. Don't worry -- the mutability appears only in 'main' and all the others are **pure**. It is the great advantage of Haskell.
+
+```haskell
 main = runSystemDefault $ do
   time <- new $ variable 0
+  timings <- new $ variable allTimings
   linkPicture $ \dt -> do
     t <- time .- get
     time .- put (t + dt)
-    return $ renderGame timings t
+    ts <- timings .- get
+    timings .- put (decay (t - 0.5) ts)
+    return $ renderGame ts t
   stand
 ```
 
-It's time to get it to interact. `call` provides `linkKeyboard` which takes a handler.
+Putting them together, we got `tutorial-passive.hs`. It is easy, isn't it? It is not a game though -- simply because it has no score, no interaction.
 
-```haskell
-linkKeyboard :: (Chatter Key -> System s ()) -> System s ()
-```
+Let's deal with inputs.
 
-`Key` is wrapped by `Chatter`, to indicate that a key is pressed, or released. In other words, it is a _vertical_ Either, where the original Either is about left and right.
+`linkKeyboard` passes keyboard events to the supplied function. `Key` is wrapped by `Chatter`, to indicate that a key is pressed, or released. In other words, it is a _vertical_ Either, where the original Either is about left and right.
 
 ```haskell
 data Chatter a = Up a | Down a
 ```
+
+All the input-related things is concentrated in the following:
+
+```haskell
+linkKeyboard $ \case
+  Down KeySpace -> do
+    ts <- timings .- get
+    t <- time .- get
+    case viewNearest t ts of
+      Nothing -> return () -- The song is over
+      Just (t', ts') -> do
+        let dt = abs (t - t')
+        when (dt < 0.5) $ do
+          timings .- put ts'
+          if
+            | dt < 0.05 -> score .- modify (+10) -- Great!
+            | dt < 0.1 -> score .- modify (+7) -- Good
+            | otherwise -> score .- modify (+1) -- Bad...
+  _ -> return () -- Discard the other events
+```
+
+where `viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value.
