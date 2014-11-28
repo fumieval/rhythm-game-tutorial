@@ -12,7 +12,7 @@ This tutorial focuses on creating a rhythm game without the pain of manipulating
 
 This tutorial has two parts.
 
-* In Part I, let us make a very simple rhythm game. We use the Call engine to develop.
+* In Part I, we build a very simple rhythm game. We use the Call engine to develop.
 * Part II introduces some technical backgrounds (graphics, signal processing, lens and so on) that support Part I.
 
 I'd be happy if this tutorial helps your curiosity to create a game.
@@ -37,7 +37,7 @@ Very well, let's build `bindings-portaudio`:
 
 Rewrite `WASAPI` according to your choice. If you choosed WASAPI, leave it as is, of course.
 
-If it fails, please check if the development library for the backend (e.g. libasound2-dev) is installed. If it throws up something messy, please report to [the GitHub repository](https://github.com/fumieval/bindings-portaudio/issues).
+If it fails, please check if the development library for the backend (e.g. libasound2-dev, libportaudio19) is installed. If it throws up something messy, please report to [the GitHub repository](https://github.com/fumieval/bindings-portaudio/issues).
 
 Then install `call`.
 
@@ -45,10 +45,10 @@ Then install `call`.
 
 Now, think of a very simple game: There's a circle, and another circle(s) is approaching. You touch　in exact timing when the another circle overlapped the original one. How do we implement this? 
 
-First, express timings as a list of time. Given timings and "life span" of circles, we can compute positions of visible circles from the current time.
+First, express timings as a set of time. Given timings and "life span" of circles, we can compute positions of visible circles from the current time.
 
 ```haskell
-phases :: [Time] -- ^ timings
+phases :: Set Time -- ^ timings
     -> Time -- ^ life span
     -> Time -- ^ the current time
     -> [Float] -- ^ phase
@@ -57,42 +57,49 @@ phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
   $ fst $ Set.split (t + len) -- before the limit
 ```
 
-First, create a function to render circles. Since 'Picture' is a monoid, we can use `foldMap` to do that.
+Create a function to render circles. Since `Picture` is a monoid, we can use `foldMap` to combine pictures. `translate (V2 x y)` shifts the picture into (x, y).
 
 ```haskell
+circle_png :: Bitmap
+circle_png = unsafePerformIO $ readBitmap "assets/circle.png"
+
 circles :: [Float] -> Picture
-circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` circleOutline 48)
+circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` bitmap circle_png)
 ```
 
-`renderGames` passes the result of `phases` into `circles`.
+`renderGames` passes the result of `phases` into `circles`. Using `color`, we can change the color of picture.
 
 ```haskell
 renderGame :: [Time] -> Time -> Picture
 renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
-    , translate (V2 320 480) `translate` color black (circleOutline 48) -- criterion
+    , V2 320 480 `translate` color black (bitmap circle_png) -- criterion
     ]
 ```
 
-`new $ variable x` instantiates mutable variable. Don't worry -- the mutability appears only in 'main' and all the others are **pure**. It is the great advantage of Haskell.
+`new $ variable x` instantiates mutable variable. Don't worry -- the mutability appears only in `main` and all the others are **pure**. It is the great advantage of Haskell.
 
 ```haskell
 main = runSystemDefault $ do
-  time <- new $ variable 0
+  -- Music preparation
+  wav <- readWAVE "assets/Monoidal Purity.wav"
+  deck <- new $ variable $ Deck.source .~ sampleSource wav $ Deck.empty
+  linkAudio $ \dt n -> deck .- Deck.playback dt n
+
   timings <- new $ variable allTimings
+
   linkPicture $ \dt -> do
-    t <- time .- get
-    time .- put (t + dt)
+    t <- deck .- use Deck.pos -- get the accurate current time
     ts <- timings .- get
-    timings .- put (decay (t - 0.5) ts)
+    timings .- put (decay (t - 1) ts)
     return $ renderGame ts t
+  deck .- Deck.playing .= True -- Start the music
+  
   stand
 ```
 
-Putting them together, we got `tutorial-passive.hs`. It is easy, isn't it? It is not a game though -- simply because it has no score, no interaction.
+Putting them together, we got `src/tutorial-passive.hs`. It is easy, isn't it? It is not a game though -- simply because it has no score, no interaction.
 
-Let's deal with inputs.
-
-`linkKeyboard` passes keyboard events to the supplied function. `Key` is wrapped by `Chatter`, to indicate that a key is pressed, or released. In other words, it is a _vertical_ Either, where the original Either is about left and right.
+Let's deal with inputs. `linkKeyboard` passes keyboard events to the supplied function. `Key` is wrapped by `Chatter`, to indicate that a key is pressed, or released.
 
 ```haskell
 data Chatter a = Up a | Down a
@@ -104,18 +111,27 @@ All the input-related things is concentrated in the following:
 linkKeyboard $ \case
   Down KeySpace -> do
     ts <- timings .- get
-    t <- time .- get
+    t <- deck .- use Deck.pos
     case viewNearest t ts of
       Nothing -> return () -- The song is over
       Just (t', ts') -> do
         let dt = abs (t - t')
-        when (dt < 0.5) $ do
-          timings .- put ts'
-          if
-            | dt < 0.05 -> score .- modify (+10) -- Great!
-            | dt < 0.1 -> score .- modify (+7) -- Good
-            | otherwise -> score .- modify (+1) -- Bad...
+        timings .- put ts'
+        if
+          | dt < 0.05 -> score .- modify (+4) -- Great!
+          | dt < 0.1 -> score .- modify (+2) -- Good
+          | otherwise -> score .- modify (+1) -- Bad...
   _ -> return () -- Discard the other events
 ```
 
-where `viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value.
+`viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value. Note that the GHC extensions `LambdaCase` and `MultiWayIf` is used in the code. After `linkKeyboard` is called, the engine passes keyboard events into the `\case` function. When the space key is pressed, it computes the time difference from the nearest timing. Increment the score by accuracy.
+
+We need to load a _Font_ as we want to show players the current score. `Call.Util.Text.simple` generates a function that renders a supplied text.
+
+```haskell
+text <- simpleRenderer defaultFont 12 -- text :: String -> Picture
+```
+
+`src/tutorial-active.hs` is the updated source we made interactive. It's a game, yay!
+
+However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting... OK, come along.

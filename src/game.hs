@@ -6,6 +6,11 @@ import Control.Monad.State
 import Data.Foldable (foldMap)
 import Control.Lens
 import qualified Call.Util.Deck as Deck
+import System.IO.Unsafe
+import qualified Call.Util.Text as Text
+
+circle_png :: Bitmap
+circle_png = unsafePerformIO $ readBitmap "assets/circle.png"
 
 phases :: Set Time -- ^ timings
     -> Time -- ^ life span
@@ -16,16 +21,16 @@ phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
   $ fst $ Set.split (t + len) s-- before the limit
 
 renderGame :: Set Time -> Time -> Picture
-renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
-    , V2 320 480 `translate` color black (circleOutline 48)]
+renderGame ts t = mconcat [color blue $ circles (phases ts 1.5 t)
+    , V2 320 480 `translate` color black (bitmap circle_png)]
 
 circles :: [Float] -> Picture
-circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` circleOutline 48)
+circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` bitmap circle_png)
 
 timings :: Set Time
 timings = Set.fromList $ concat $ zipWith (\t ch -> [t | ch == '*'])
-  (iterate (+(60/160/2)) 1) -- the list of timings where circles may spawn
-  "*-*******-*-*-*-" -- asterisk indicates that a circle can spawn
+  (iterate (+(60/160/2)) 0) -- the list of timings where circles may spawn
+  "----------------*-*******-*-*-*-" -- asterisk indicates that a circle can spawn
 
 -- | Eradicate circles.
 decay :: Time -> Set Time -> Set Time
@@ -41,19 +46,20 @@ viewNearest t ts = case Set.split t ts of
   _ -> Nothing
 
 main = runSystemDefault $ do
-  time <- new $ variable 0
   score <- new $ variable 0
   timings <- new $ variable timings
 
   wav <- readWAVE "Monoidal Purity.wav"
-  deck <- new $ variable $ Deck.empty & source .~ wav
-  linkAudio $ deck .- playback
+  text <- Text.simple defaultFont 12
+
+  deck <- new $ variable $ Deck.empty & Deck.source .~ sampleSource wav
+  linkAudio $ \dt n -> deck .- Deck.playback dt n
 
   linkPicture $ \dt -> do
     t <- deck .- use Deck.pos
-    time .- put (t + dt)
     ts <- timings .- get
-    return $ renderGame ts t
+    sc <- score .- get >>= text . show
+    return $ renderGame ts t <> translate (V2 480 60) (color black sc)
 
   linkKeyboard $ \case
     Down KeySpace -> do
