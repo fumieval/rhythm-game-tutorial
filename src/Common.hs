@@ -26,7 +26,7 @@ phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
   $ fst $ Set.split (t + len) s -- before the limit
 
 circles :: [Float] -> Picture
-circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` circle_png)
+circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` bitmap circle_png)
 
 allTimings :: Set Time
 allTimings = Set.fromList $ concat $ zipWith (\t ch -> [t | ch == '*'])

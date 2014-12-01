@@ -24,7 +24,7 @@ main = runSystemDefault $ do
     t <- deck .- use Deck.pos
     ts <- timings .- get
     sc <- score .- get
-    return $ renderGame ts t <> translate (V2 480 60) (color black $ text $ show sc)
+    return $ renderGame ts t <> translate (V2 400 60) (color black $ text $ "Score: " ++ show sc)
 
   linkKeyboard $ \case
     Down KeySpace -> do
