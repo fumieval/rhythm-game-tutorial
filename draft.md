@@ -76,7 +76,42 @@ renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
     ]
 ```
 
-`new $ variable x` instantiates mutable variable. Don't worry -- the mutability appears only in `main` and all the others are **pure**. It is the great advantage of Haskell.
+`new $ variable x` instantiates mutable variable. Don't worry -- the mutability appears only in `main` and all the others are **pure**. It is the great advantage of Haskell. In call, actions are performed on `System s` monad. `runSystemDefault` runs `System s` in IO.
+
+`linkPicture` takes a function that returns a Picture. The argument is the interval between frames, though it is often negilible.
+
+`linkAudio` passes the number of frames and time delta to the function and plays the result waveform. It is quite concrete so using directly is difficult. Call offers two utilities: Deck and Sampler. Both of them are completely independent from the core of call. To use them, create a variable that contains initial state `empty`, and pass `playback` to `linkAudio`.
+
+The type signature of `playback` shows they requires a stateful context of Sampler or Deck.
+
+```haskell
+import Call.Util.Deck as Deck
+
+playback :: MonadState Deck m => Time -> Int -> m (V.Vector Stereo) 
+```
+
+`objective` provides an operator to resolve that. `deck` is a variable which has the state of the deck. 
+The `(.-)` operator absorbs the state update of `playback`, conveying it to the variable `deck`.
+
+`get` and `put` accesses the state directly. You notice three new operators: `.~`, `use`, and `.=`. These comes from the `lens` library. This package contains types and utilities to deal with various accessors.
+
+`source`, `pos`, `playing` are `Lens`. Given `Lens' s a`, you can take a value `a` from `s`, and you can update that.
+
+```haskell
+(.~) :: Lens' s a -> a -> s -> s
+(^.) :: s -> Lens' s a -> a
+```
+
+`use` and `(.=)` works on stateful monads.
+
+```haskell
+use :: MonadState s m => Lens' s a -> m a
+(.=) :: MonadState s m => Lens' s a -> a -> m ()
+```
+
+With lens, we can access a specific element of a structure easily, allowing you manipulate just like "fields" in OOP languages.
+
+`readWAVE` loads a sound from `.wav` file. To play, replace the `source` of deck by a loaded sound and set `playing` to True.
 
 ```haskell
 main = runSystemDefault $ do
@@ -94,7 +129,7 @@ main = runSystemDefault $ do
     return $ renderGame ts t
   deck .- Deck.playing .= True -- Start the music
   
-  stand
+  stand -- wait forever
 ```
 
 Putting them together, we got `src/tutorial-passive.hs`. It is easy, isn't it? It is not a game though -- simply because it has no score, no interaction.
@@ -200,28 +235,6 @@ class Affine a where
 
 ### Audio
 
-Currently, there are few packages for audio that work in common platforms and are easy to install. I choosed `portaudio` for now which supports a bunch of backends.
+Currently, there are few packages for audio that work in common platforms and are easy to install. I choosed `portaudio` for now which supports a bunch of backends. Humans are so sensitive about sound. 20 miliseconds of latency is noticable for us.
 
-`linkAudio` passes the number of frames and time delta to the function and plays the result waveform. It is quite generic, though using directly is difficult. Call offers two utilities: Deck and Sampler. Both of them are completely independent from the core of call. To use them, create a variable that contains initial state `empty`, and pass `playback` to `linkAudio`.
-
-The type signature of `playback` shows they requires a stateful context of Sampler or Deck.
-
-```haskell
-playback :: MonadState Sampler m => Time -> Int -> m (V.Vector Stereo) 
-```
-
-`objective` provides an operator to resolve. now `deck` is a variable which has the state of the deck:
-
-```haskell
-sampler <- new $ variable Sampler.empty
-```
-
-The (.-) operator absorbs the state update of `playback`, conveying it to the variable `deck`. The same thing can be applied for `Sampler`.
-
-```haskell
-linkAudio $ \dt n -> sampler .- Sampler.playback dt n
-```
-
-`readWAVE` loads a sound from `.wav` file. To play, run `sampler .- play s`.
-
-Call manipulates graphics, audio, and input in separate processes. Therefore, Call can be applied in time-critical applications such as rhythm games.
+Thus, it is important to minimize latency when it comes to audio. The raw `portaudio` uses the callback model. This is the main reason of why call relies on callback. `objective` package contributes to relax the pain of handling events and states.
