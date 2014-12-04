@@ -213,15 +213,15 @@ playback :: MonadState Sampler m => Time -> Int -> m (V.Vector Stereo)
 `objective` provides an operator to resolve. now `deck` is a variable which has the state of the deck:
 
 ```haskell
-smpl <- new $ variable Sampler.empty
+sampler <- new $ variable Sampler.empty
 ```
 
 The (.-) operator absorbs the state update of `playback`, conveying it to the variable `deck`. The same thing can be applied for `Sampler`.
 
 ```haskell
-linkAudio $ \dt n -> deck .- Sampler.playback dt n
+linkAudio $ \dt n -> sampler .- Sampler.playback dt n
 ```
 
-`readWAVE` loads a sound from `.wav` file. To play, run `deck .- play s`.
+`readWAVE` loads a sound from `.wav` file. To play, run `sampler .- play s`.
 
 Call manipulates graphics, audio, and input in separate processes. Therefore, Call can be applied in time-critical applications such as rhythm games.
