@@ -143,23 +143,24 @@ data Chatter a = Up a | Down a
 All the input-related things is concentrated in the following:
 
 ```haskell
-linkKeyboard $ \case
-  Down KeySpace -> do
-    ts <- timings .- get
-    t <- deck .- use Deck.pos
-    case viewNearest t ts of
-      Nothing -> return () -- The song is over
-      Just (t', ts') -> do
-        let dt = abs (t - t')
-        timings .- put ts'
-        if
-          | dt < 0.05 -> score .- modify (+4) -- Great!
-          | dt < 0.1 -> score .- modify (+2) -- Good
-          | otherwise -> score .- modify (+1) -- Bad...
-  _ -> return () -- Discard the other events
+linkKeyboard $ \ev -> case ev of
+    Down KeySpace -> do
+      ts <- timings .- get
+      t <- deck .- use Deck.pos
+      case viewNearest t ts of
+        Nothing -> return () -- The song is over
+        Just (t', ts') -> do
+          let dt = abs (t - t')
+          timings .- put ts'
+          if dt < 0.05
+            then score .- modify (+4) -- Great!
+            else if dt < 0.1
+              then score .- modify (+2) -- Good
+              else score .- modify (+1) -- Bad...
+    _ -> return () -- Discard the other events
 ```
 
-`viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value. Note that the GHC extensions `LambdaCase` and `MultiWayIf` is used in the code. After `linkKeyboard` is called, the engine passes keyboard events into the `\case` function. When the space key is pressed, it computes the time difference from the nearest timing. Increment the score by accuracy.
+`viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value. After `linkKeyboard` is called, the engine passes keyboard events. When the space key is pressed, it computes the time difference from the nearest timing, then increment the score by accuracy.
 
 We need to load a _Font_ as we want to show players the current score. `Call.Util.Text.simple` generates a function that renders a supplied text.
 
