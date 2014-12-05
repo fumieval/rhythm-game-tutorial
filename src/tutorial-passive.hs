@@ -14,13 +14,9 @@ main = runSystemDefault $ do
   deck <- new $ variable $ Deck.source .~ sampleSource wav $ Deck.empty
   linkAudio $ \dt n -> deck .- Deck.playback dt n
 
-  timings <- new $ variable allTimings
-
   linkPicture $ \dt -> do
     t <- deck .- use Deck.pos
-    ts <- timings .- get
-    timings .- put (decay (t - 1) ts)
-    return $ renderGame ts t
-  deck .- Deck.playing .= True -- Start the music
+    return $ renderGame allTimings t
+  deck .- Deck.playing .= True -- start the music
   
-  stand
+  stand -- wait forever

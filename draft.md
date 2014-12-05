@@ -43,9 +43,51 @@ Then install `call`.
 
 > $ cabal install call
 
-Now, think of a very simple game: There's a circle, and another circle(s) is approaching. You touch　in exact timing when the another circle overlapped the original one. How do we implement this? 
+Now, think of a very simple game: There's a circle, and another circle(s) is approaching. You touch　in exact timing when the another circle overlapped the original one. How do we implement this? The structure of the program can be derived by writing components and relationships down.
 
-First, express timings as a set of time. Given timings and "life span" of circles, we can compute positions of visible circles from the current time.
+* Game has a picture which depends on the time.
+* A music is playing through the game.
+
+We want to synchronize graphics with the music. An action that returns the current time in the _music_ is neccesary: even if the programm has stumbled accidentally, the graphics and music shouldn't diverge.
+
+Here is the main program of the first example.
+
+```haskell
+prepareMusic :: System s Deck.Deck
+prepareMusic = do
+  wav <- readWAVE "assets/Monoidal Purity.wav"
+  return $ Deck.source .~ sampleSource wav $ Deck.empty
+
+main = runSystemDefault $ do
+  d0 <- prepareMusic
+  deck <- new $ variable d0
+  linkAudio $ \dt n -> deck .- Deck.playback dt n
+
+  linkPicture $ \dt -> do
+    t <- deck .- use Deck.pos
+    return $ renderGame allTimings t
+  deck .- Deck.playing .= True
+  
+  stand
+```
+
+In call, actions are performed on `System s` monad. `runSystemDefault` runs `System s` in IO. `readWAVE` loads .wav file. 
+
+`linkAudio` passes the number of frames and time delta to the function and plays the result waveform. It is quite concrete so using directly is difficult. Call offers two utilities: Deck and Sampler. Both of them are completely independent from the core of call. To use them, create a variable that contains initial state `empty`, and pass `playback` to `linkAudio`. 
+The type signature of `playback` shows that they requires a stateful context of Sampler or Deck.
+
+```haskell
+import Call.Util.Deck as Deck
+
+playback :: MonadState Deck m => Time -> Int -> m (V.Vector Stereo) 
+```
+
+`objective` provides an operator to resolve that. `deck` is a variable which has the state of the deck. 
+The `(.-)` operator absorbs the state update of `playback`, conveying it to the variable `deck`. However, `linkAudio $ \dt n -> deck .- Deck.playback dt n`
+
+`linkPicture` takes a function that returns a Picture. The argument is the interval between frames, though it is often negilible.
+
+We need to implement just `renderGame`. First, express timings as a set of time. Given timings and "life span" of circles, we can compute positions of visible circles from the current time.
 
 ```haskell
 phases :: Set Time -- ^ timings
@@ -57,7 +99,7 @@ phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
   $ fst $ Set.split (t + len) -- before the limit
 ```
 
-Create a function to render circles. Since `Picture` is a monoid, we can use `foldMap` to combine pictures. `translate (V2 x y)` shifts the picture into (x, y).
+Create a function to render circles. Since `Picture` is a monoid, we can use `foldMap` or `mconcat` to combine pictures. `translate (V2 x y)` shifts the picture into (x, y).
 
 ```haskell
 circle_png :: Bitmap
@@ -75,23 +117,6 @@ renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
     , V2 320 480 `translate` color black (bitmap circle_png) -- criterion
     ]
 ```
-
-`new $ variable x` instantiates mutable variable. Don't worry -- the mutability appears only in `main` and all the others are **pure**. It is the great advantage of Haskell. In call, actions are performed on `System s` monad. `runSystemDefault` runs `System s` in IO.
-
-`linkPicture` takes a function that returns a Picture. The argument is the interval between frames, though it is often negilible.
-
-`linkAudio` passes the number of frames and time delta to the function and plays the result waveform. It is quite concrete so using directly is difficult. Call offers two utilities: Deck and Sampler. Both of them are completely independent from the core of call. To use them, create a variable that contains initial state `empty`, and pass `playback` to `linkAudio`.
-
-The type signature of `playback` shows they requires a stateful context of Sampler or Deck.
-
-```haskell
-import Call.Util.Deck as Deck
-
-playback :: MonadState Deck m => Time -> Int -> m (V.Vector Stereo) 
-```
-
-`objective` provides an operator to resolve that. `deck` is a variable which has the state of the deck. 
-The `(.-)` operator absorbs the state update of `playback`, conveying it to the variable `deck`.
 
 `get` and `put` accesses the state directly. You notice three new operators: `.~`, `use`, and `.=`. These comes from the `lens` library. This package contains types and utilities to deal with various accessors.
 
@@ -112,25 +137,6 @@ use :: MonadState s m => Lens' s a -> m a
 With lens, we can access a specific element of a structure easily, allowing you manipulate just like "fields" in OOP languages.
 
 `readWAVE` loads a sound from `.wav` file. To play, replace the `source` of deck by a loaded sound and set `playing` to True.
-
-```haskell
-main = runSystemDefault $ do
-  -- Music preparation
-  wav <- readWAVE "assets/Monoidal Purity.wav"
-  deck <- new $ variable $ Deck.source .~ sampleSource wav $ Deck.empty
-  linkAudio $ \dt n -> deck .- Deck.playback dt n
-
-  timings <- new $ variable allTimings
-
-  linkPicture $ \dt -> do
-    t <- deck .- use Deck.pos -- get the accurate current time
-    ts <- timings .- get
-    timings .- put (decay (t - 1) ts)
-    return $ renderGame ts t
-  deck .- Deck.playing .= True -- Start the music
-  
-  stand -- wait forever
-```
 
 Putting them together, we got `src/tutorial-passive.hs`. It is easy, isn't it? It is not a game though -- simply because it has no score, no interaction.
 
