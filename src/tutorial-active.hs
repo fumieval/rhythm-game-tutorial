@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase, MultiWayIf, ViewPatterns #-}
 import Call
 import Control.Monad.State
 import qualified Call.Util.Deck as Deck
@@ -26,7 +25,7 @@ main = runSystemDefault $ do
     sc <- score .- get
     return $ renderGame ts t <> translate (V2 400 60) (color black $ text $ "Score: " ++ show sc)
 
-  linkKeyboard $ \case
+  linkKeyboard $ \ev -> case ev of
     Down KeySpace -> do
       ts <- timings .- get
       t <- deck .- use Deck.pos
@@ -35,10 +34,11 @@ main = runSystemDefault $ do
         Just (t', ts') -> do
           let dt = abs (t - t')
           timings .- put ts'
-          if
-            | dt < 0.05 -> score .- modify (+4) -- Great!
-            | dt < 0.1 -> score .- modify (+2) -- Good
-            | otherwise -> score .- modify (+1) -- Bad...
+          if dt < 0.05
+            then score .- modify (+4) -- Great!
+            else if dt < 0.1
+              then score .- modify (+2) -- Good
+              else score .- modify (+1) -- Bad...
     _ -> return () -- Discard the other events
   
   deck .- Deck.playing .= True -- Start the music
