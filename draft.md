@@ -127,7 +127,7 @@ renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
 (^.) :: s -> Lens' s a -> a
 ```
 
-`use` and `(.=)` works on stateful monads.
+`use` and `(.=)` work on stateful monads.
 
 ```haskell
 use :: MonadState s m => Lens' s a -> m a
@@ -138,7 +138,11 @@ With lens, we can access a specific element of a structure easily, allowing you 
 
 `readWAVE` loads a sound from `.wav` file. To play, replace the `source` of deck by a loaded sound and set `playing` to True.
 
-Putting them together, we got `src/tutorial-passive.hs`. It is easy, isn't it? It is not a game though -- simply because it has no score, no interaction.
+Putting them together, we got `src/tutorial-passive.hs`.
+
+![tutorial-passive](images/tutorial-passive-screenshot.png)
+
+It is not a game though -- simply because it has no score, no interaction.
 
 Let's deal with inputs. `linkKeyboard` passes keyboard events to the supplied function. `Key` is wrapped by `Chatter`, to indicate that a key is pressed, or released.
 
@@ -175,6 +179,8 @@ text <- Text.simple defaultFont 12 -- text :: String -> Picture
 ```
 
 `src/tutorial-active.hs` is the updated source we made interactive. It's a game, yay!
+
+![tutorial-active](images/tutorial-active-screenshot.png)
 
 However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting... OK, come along.
 

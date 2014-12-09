@@ -4,10 +4,6 @@ import qualified Call.Util.Deck as Deck
 import Control.Lens
 import Common
 
-renderGame :: Timings -> Time -> Picture
-renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
-    , V2 320 480 `translate` color black (circleOutline 48)]
-
 main = runSystemDefault $ do
   -- Music preparation
   wav <- readWAVE "assets/Monoidal Purity.wav"

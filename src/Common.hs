@@ -33,6 +33,10 @@ allTimings = Set.fromList $ concat $ zipWith (\t ch -> [t | ch == '*'])
   (iterate (+(60/160/2)) 0) -- the list of timings where circles may spawn
   "----------------*-*******-*-*-*-" -- asterisk indicates that a circle can spawn
 
+renderGame :: Timings -> Time -> Picture
+renderGame ts t = mconcat [color blue $ circles (phases ts 1.5 t)
+    , V2 320 480 `translate` color black (bitmap circle_png)]
+
 viewNearest :: (Num a, Ord a) => a -> Set a -> Maybe (a, Set a)
 viewNearest t ts = case Set.split t ts of
   (sa@(Set.maxView -> Just (a, sa')), sb@(Set.minView -> Just (b, sb')))

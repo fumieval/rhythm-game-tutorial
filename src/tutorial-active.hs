@@ -5,16 +5,12 @@ import qualified Call.Util.Text as Text
 import Control.Lens
 import Common
 
-renderGame :: Timings -> Time -> Picture
-renderGame ts t = mconcat [color blue $ circles (phases ts 1.5 t)
-    , V2 320 480 `translate` color black (bitmap circle_png)]
-
 main = runSystemDefault $ do
   score <- new $ variable 0
   timings <- new $ variable allTimings
 
   wav <- readWAVE "assets/Monoidal Purity.wav"
-  text <- Text.simple defaultFont 12
+  text <- Text.simple defaultFont 24
 
   deck <- new $ variable $ Deck.empty & Deck.source .~ sampleSource wav
   linkAudio $ \dt n -> deck .- Deck.playback dt n
