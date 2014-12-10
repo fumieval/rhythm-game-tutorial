@@ -33,7 +33,7 @@ We have to choose some from several backends:
 
 Very well, let's build `bindings-portaudio`:
 
-> $ cabal install bindings-portaudio -fWASAPI
+> $ cabal install bindings-portaudio -fBundle -fWASAPI
 
 Rewrite `WASAPI` according to your choice. If you choosed WASAPI, leave it as is, of course.
 
