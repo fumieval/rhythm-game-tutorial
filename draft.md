@@ -24,20 +24,27 @@ Part I: Get excited
 
 Firstly, we have to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC. Note that using 32-bit version of GHC is safer to avoid problems even if your platform is Windows x64.
 
-We have to choose some from several backends:
-
-* If you are using Windows Vista or later, WASAPI is good choice. DirectSound is an another candidate.
-* If you are Mac user, you probably like to use CoreAudio.
-* On Linux or FreeBSD, we support ALSA or OSS or JACK. If you don't know the differences, choose ALSA for now.
-* If you have an ASIO-compatible audio device, and you have registered to Steinberg as a 3rd-party developer, and you desire high-quality sound or low latency, using ASIO is worth.
-
 Very well, let's build `bindings-portaudio`:
 
-> $ cabal install bindings-portaudio -fBundle -fWASAPI
+> $ cabal install bindings-portaudio
 
-Rewrite `WASAPI` according to your choice. If you choosed WASAPI, leave it as is, of course.
+If it fails, please check if the development library for the backend (e.g. libasound2-dev, libportaudio19) is installed. On windows, the installation is a bit complex. Extracted from `bindings-portaudio` README:
 
-If it fails, please check if the development library for the backend (e.g. libasound2-dev, libportaudio19) is installed. If it throws up something messy, please report to [the GitHub repository](https://github.com/fumieval/bindings-portaudio/issues).
+1. Download and unpack the latest [portaudio](http://www.portaudio.com/download.html) at a clear directory (e.g. `C:\portaudio`).
+2. Run `bash configure`, then `make`.
+3. Edit `portaudio-2.0` as follows:
+```
+--- prefix=/usr/local
++++ prefix=C:/portaudio
+
+--- libdir=${exec_prefix}/lib
++++ libdir=${exec_prefix}/lib/.libs
+```
+4. If you don't have pkgconfig, download `pkg-config` from [GTK+ Download: Windows (32-bit)](http://www.gtk.org/download/win32.php) and make sure `pkg-config.exe` is in your `PATH`.
+5. `set PKG_CONFIG_PATH=C:/portaudio`
+6. Run `cabal update && cabal install bindings-portaudio`.
+
+If it throws up something messy, please report to [the GitHub repository](https://github.com/fumieval/bindings-portaudio/issues).
 
 Then install `call`.
 
@@ -67,22 +74,22 @@ main = runSystemDefault $ do
     t <- deck .- use Deck.pos
     return $ renderGame allTimings t
   deck .- Deck.playing .= True
-  
+
   stand
 ```
 
-In call, actions are performed on `System s` monad. `runSystemDefault` runs `System s` in IO. `readWAVE` loads .wav file. 
+In call, actions are performed on `System s` monad. `runSystemDefault` runs `System s` in IO. `readWAVE` loads .wav file.
 
-`linkAudio` passes the number of frames and time delta to the function and plays the result waveform. It is quite concrete so using directly is difficult. Call offers two utilities: Deck and Sampler. Both of them are completely independent from the core of call. To use them, create a variable that contains initial state `empty`, and pass `playback` to `linkAudio`. 
+`linkAudio` passes the number of frames and time delta to the function and plays the result waveform. It is quite concrete so using directly is difficult. Call offers two utilities: Deck and Sampler. Both of them are completely independent from the core of call. To use them, create a variable that contains initial state `empty`, and pass `playback` to `linkAudio`.
 The type signature of `playback` shows that they requires a stateful context of Sampler or Deck.
 
 ```haskell
 import Call.Util.Deck as Deck
 
-playback :: MonadState Deck m => Time -> Int -> m (V.Vector Stereo) 
+playback :: MonadState Deck m => Time -> Int -> m (V.Vector Stereo)
 ```
 
-`objective` provides an operator to resolve that. `deck` is a variable which has the state of the deck. 
+`objective` provides an operator to resolve that. `deck` is a variable which has the state of the deck.
 The `(.-)` operator absorbs the state update of `playback`, conveying it to the variable `deck`. However, `linkAudio $ \dt n -> deck .- Deck.playback dt n`
 
 `linkPicture` takes a function that returns a Picture. The argument is the interval between frames, though it is often negilible.
@@ -182,9 +189,7 @@ text <- Text.simple defaultFont 12 -- text :: String -> Picture
 
 ![tutorial-active](images/tutorial-active-screenshot.png)
 
-However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting... OK, come along.
-
-Most rhythm games shows the recent evaluation of accuracy immediately. so players can notice whether their playing is good or bad. It is what we're going to do.
+However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. so players can notice whether their playing is good or bad.
 
 Part II
 -----------------
@@ -233,7 +238,7 @@ drawScene (Transform mat s) = withMatrix mat (drawScene s)
 
 where `drawPrimitive`, `applyVFX`, `withMatrix` is environment-dependent.
 
-In other words, free structures is a kind of DSL. They encourages the reusability, independence of programs. Andres Löh's [Monads for free!](https://skillsmatter.com/skillscasts/4430-monads-for-free) is a great introduction of free structures.
+In other words, free structures is a kind of DSL which encourages the reusability and independence of programs. Andres Löh's [Monads for free!](https://skillsmatter.com/skillscasts/4430-monads-for-free) is a great introduction for free structures.
 
 Call puts together a few kinds of transformation in `Affine` class. Thanks to type families, we can use the same operation for both 2D and 3D. `Normal` is the normal vector, which is 3-dimensional vector in 3D but it is just `Float` in 2D.
 
@@ -250,4 +255,4 @@ class Affine a where
 
 Currently, there are few packages for audio that work in common platforms and are easy to install. I choosed `portaudio` for now which supports a bunch of backends. Humans are so sensitive about sound. 20 miliseconds of latency is noticable for us.
 
-Thus, it is important to minimize latency when it comes to audio. The raw `portaudio` uses the callback model. This is the main reason of why call relies on callback. `objective` package contributes to relax the pain of handling events and states.
+Thus, it is important to minimize latency when it comes to audio. The raw `portaudio` uses the callback model. This is the main reason of why call relies on callback. `objective` package contributes to relax the pain of handling events and states. The call library aims to be small and concrete so that it only provides a way to interact with the machine.
