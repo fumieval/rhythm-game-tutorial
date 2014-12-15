@@ -21,31 +21,38 @@ I'd be happy if this tutorial helps your curiosity to create a game.
 Part I: Preparation
 ----
 
-Firstly, we have to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC. Note that using 32-bit version of GHC is safer to avoid problems even if your platform is Windows x64.
+Firstly, we have to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC.
 
 This package is packed in `rhythm-game-tutorial` package. You can set up by:
 
 ```
+$ sudo your-package-manager install libportaudio19
 $ cabal unpack rhythm-game-tutorial
+$ cd rhythm-game-tutorial*
 $ cabal install --only-dependencies
 $ cabal build
 ```
 
+`cabal install --only-dependencies` installs a bunch of packages, including two vital packages: `objective` and `call`.
 
-# On windows
+* `objective` gives an abstraction for stateful objects. It is not neccessary strictly, though it kills the pain of state significantly.
+* `call` is a cross-platform multimedia library. While it is small and simple, the essentials of games (2D/3D graphics, audio, input handing from keyboard, mouse and gamepad) is assurable.
+  * `call` depends on `binding-portaudio` for low-level audio APIs. Built-in source is available for installation easiness.
 
-Unfortunately, installing `bindings-portaudio` is magical on Windows.
+### On windows
 
-> $ cabal install bindings-portaudio
+Unfortunately, installing `bindings-portaudio` is magical on Windows. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.
 
-If it fails, please check if the development library for the backend (e.g. libasound2-dev, libportaudio19) is installed. On windows, the installation is a bit complex. Extracted from `bindings-portaudio` README:
+> $ cabal install bindings-portaudio -fBundle -fWASAPI
 
-If it throws up something messy, please report to [the GitHub repository](https://github.com/fumieval/bindings-portaudio/issues).
+If it throws up something messy, please report to me.
 
 Part II: Creating a game
 -------------------------------------------------
 
 > Here we bang! -- Wada-don, "Taiko no Tatsujin"
+
+![tutorial-passive](images/tutorial-passive-screenshot.png)
 
 Now, think of a very simple game: There's a circle at the bottom of the window, and another circle(s) is approaching. You hit the space key in exact timing when the another circle overlapped the original one. How do we implement this? The structure of the program can be derived by writing components down:
 
@@ -76,7 +83,7 @@ In Call, actions are performed on `System s` monad. `runSystemDefault` converts 
 
 ```haskell
 type Music = InstOf (System s) (Variable Deck)
-prepareMusic :: System s Music
+prepareMusic :: FilePath -> System s Music
 playMusic :: Music -> System s ()
 ```
 
@@ -143,7 +150,7 @@ Here is an updated `main`.
 ```haskell
 main = runSystemDefault $ do
   music <- prepareMusic "assets/Monoidal-Purity.wav"
-  allTimings <- liftIO $ loadTimings "assets/Monoidal-Purity-single.wav"
+  allTimings <- liftIO $ loadTimings "assets/Monoidal-Purity.wav"
   linkPicture $ \_ -> renderLane allTimings <$> getTime
   playMusic music
   stand
@@ -159,9 +166,9 @@ A music is essential for rhythm games.
 
 type Music s = InstOf (System s) (Variable Deck)
 
-prepareMusic :: System s Music
-prepareMusic = do
-  wav <- readWAVE "assets/Monoidal Purity.wav"
+prepareMusic :: FilePath -> System s Music
+prepareMusic path = do
+  wav <- readWAVE path
   i <- new $ variable $ source .~ sampleSource wav $ Deck.empty
   linkAudio $ playbackOf i
   return i
@@ -169,7 +176,7 @@ prepareMusic = do
 
 `readWAVE` loads a sound from `.wav` file.`source .~ sampleSource wav $ Deck.empty` is a bit tricky.
 
-Deck is an utility to play a music. `source` is a `Lens` which is purely functional representation of accessors. This article explains about `Lens` later, in Part III. `new $ variable $ v` instantiates a music. Regard `linkAudio $ playbackOf i` as a cliché for now.
+Deck is an utility to play a music. `source` is a `Lens` which is purely functional representation of accessors. This tutorial explains about `Lens` later, in Part III. `new $ variable $ v` instantiates a music. Regard `linkAudio $ playbackOf i` as a cliché for now.
 
 ### Component: getPosition and playMusic
 
@@ -204,8 +211,6 @@ With lens, we can access a specific element of a structure easily, allowing you 
 `getPosition m` returns an accurate time (in seconds) elapsed from an origin of a music `m`.
 
 Putting them together, we got `src/tutorial-passive.hs`.
-
-![tutorial-passive](images/tutorial-passive-screenshot.png)
 
 It is not a game though -- simply because it has no score, no interaction.
 
