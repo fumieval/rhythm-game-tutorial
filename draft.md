@@ -17,11 +17,8 @@ This tutorial has two parts.
 
 I'd be happy if this tutorial helps your curiosity to create a game.
 
-Part I: Get excited
+Part I: Preparation
 ----
-
-> Here we bang! -- Wada-don, "Taiko no Tatsujin"
-
 Firstly, we have to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC. Note that using 32-bit version of GHC is safer to avoid problems even if your platform is Windows x64.
 
 Very well, let's build `bindings-portaudio`:
@@ -50,51 +47,73 @@ Then install `call`.
 
 > $ cabal install call
 
-Now, think of a very simple game: There's a circle, and another circle(s) is approaching. You touch　in exact timing when the another circle overlapped the original one. How do we implement this? The structure of the program can be derived by writing components and relationships down.
+Part II: Creating a game
+-------------------------------------------------
+
+> Here we bang! -- Wada-don, "Taiko no Tatsujin"
+
+Now, think of a very simple game: There's a circle, and another circle(s) is approaching. You hit the space key in exact timing when the another circle overlapped the original one. How do we implement this? The structure of the program can be derived by writing components and relationships down.
 
 * Game has a picture which depends on the time.
 * A music is playing through the game.
 
-We want to synchronize graphics with the music. An action that returns the current time in the _music_ is neccesary: even if the programm has stumbled accidentally, the graphics and music shouldn't diverge.
-
-Here is the main program of the first example.
+We want to synchronize graphics with the music. An action that returns the current time in the _music_ is neccesary: even if the programm has stumbled accidentally, the graphics and music shouldn't diverge. In call, actions are performed on `System s` monad. Let's divide the game into the following six components:
 
 ```haskell
-prepareMusic :: System s Deck.Deck
-prepareMusic = do
-  wav <- readWAVE "assets/Monoidal Purity.wav"
-  return $ Deck.source .~ sampleSource wav $ Deck.empty
-
-main = runSystemDefault $ do
-  d0 <- prepareMusic
-  deck <- new $ variable d0
-  linkAudio $ \dt n -> deck .- Deck.playback dt n
-
-  linkPicture $ \dt -> do
-    t <- deck .- use Deck.pos
-    return $ renderGame allTimings t
-  deck .- Deck.playing .= True
-
-  stand
+prepareMusic :: System s Music
+playMusic :: Music -> System s ()
+getTime :: Music -> System s Time
+allTimings :: Timings
+renderGame :: Timings -> Time -> Picture
+gameMain :: System s ()
 ```
 
-In call, actions are performed on `System s` monad. `runSystemDefault` runs `System s` in IO. `readWAVE` loads .wav file.
-
-`linkAudio` passes the number of frames and time delta to the function and plays the result waveform. It is quite concrete so using directly is difficult. Call offers two utilities: Deck and Sampler. Both of them are completely independent from the core of call. To use them, create a variable that contains initial state `empty`, and pass `playback` to `linkAudio`.
-The type signature of `playback` shows that they requires a stateful context of Sampler or Deck.
+Compose them like this.
 
 ```haskell
+gameMain :: System s ()
+gameMain = do
+  music <- prepareMusic
+
+  linkPicture $ \_ -> renderGame allTimings <$> getTime music
+
+  playMusic music
+
+main = runSystemDefault (gameMain >> stand)
+```
+
+`linkPicture :: (Time -> System s Picture) -> System ()` is the only function provided by Call to actually draw something.`linkPicture f` repeatedly calls `f` and draws the result of `f` to the window. The argument of `f` is the time difference between frames, it is often negilible though.
+
+`runSystemDefault` runs `System s` in IO.
+
+### Component: prepareMusic
+
+A music is essential for rhythm games.
+
+```haskell
+import Control.Monad.State.Strict
+import Call
 import Call.Util.Deck as Deck
 
-playback :: MonadState Deck m => Time -> Int -> m (V.Vector Stereo)
+type Music = Inst' (State Deck) (System s)
+
+prepareMusic :: System s Music
+prepareMusic = do
+  wav <- readWAVE "assets/Monoidal Purity.wav"
+  i <- new $ variable $ source .~ sampleSource wav $ Deck.empty
+  linkAudio $ playbackOf i
+  return i
 ```
 
-`objective` provides an operator to resolve that. `deck` is a variable which has the state of the deck.
-The `(.-)` operator absorbs the state update of `playback`, conveying it to the variable `deck`. However, `linkAudio $ \dt n -> deck .- Deck.playback dt n`
+`readWAVE` loads a sound from `.wav` file.`source .~ sampleSource wav $ Deck.empty` is a bit tricky.
 
-`linkPicture` takes a function that returns a Picture. The argument is the interval between frames, though it is often negilible.
+Deck is an utility to play a music. `source` is a `Lens` which is purely functional representation of accessors. This article explains about `Lens` later, in Part III.
+
+`new $ variable $ v` instantiates a music. Regard `linkAudio $ playbackOf i` as a cliché for now.
 
 We need to implement just `renderGame`. First, express timings as a set of time. Given timings and "life span" of circles, we can compute positions of visible circles from the current time.
+
+### Component: renderGame
 
 ```haskell
 phases :: Set Time -- ^ timings
@@ -125,13 +144,25 @@ renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
     ]
 ```
 
-`get` and `put` accesses the state directly. You notice three new operators: `.~`, `use`, and `.=`. These comes from the `lens` library. This package contains types and utilities to deal with various accessors.
+### Component: getTime and playMusic
 
-`source`, `pos`, `playing` are `Lens`. Given `Lens' s a`, you can take a value `a` from `s`, and you can update that.
+The implementation of `getTime` and `playMusic` is as follows:
 
 ```haskell
-(.~) :: Lens' s a -> a -> s -> s
-(^.) :: s -> Lens' s a -> a
+getTime :: Music -> System s Time
+getTime m = m .- use pos
+
+playMusic :: Music -> System s ()
+playMusic m = m .- playing .= True
+```
+
+You notice two new operators: `use` and `.=`. These comes from the `lens` library. This package contains types and utilities to deal with various accessors.
+
+`pos`, `playing` are `Lens`. Given `Lens' s a`, you can take a value `a` from `s`, and you can update that.
+
+```
+pos :: Lens' Deck Time
+playing :: Lens' Deck Bool
 ```
 
 `use` and `(.=)` work on stateful monads.
@@ -141,9 +172,7 @@ use :: MonadState s m => Lens' s a -> m a
 (.=) :: MonadState s m => Lens' s a -> a -> m ()
 ```
 
-With lens, we can access a specific element of a structure easily, allowing you manipulate just like "fields" in OOP languages.
-
-`readWAVE` loads a sound from `.wav` file. To play, replace the `source` of deck by a loaded sound and set `playing` to True.
+With lens, we can access a specific element of a structure easily, allowing you manipulate just like "fields" in OOP languages. However, the state of the deck is packed in `music` in `gameMain` so these can't be used directly. `objective` provides an operator to resolve that. The `(.-)` operator passes state update of the right operand, conveying it to the left variable.
 
 Putting them together, we got `src/tutorial-passive.hs`.
 
@@ -151,7 +180,28 @@ Putting them together, we got `src/tutorial-passive.hs`.
 
 It is not a game though -- simply because it has no score, no interaction.
 
-Let's deal with inputs. `linkKeyboard` passes keyboard events to the supplied function. `Key` is wrapped by `Chatter`, to indicate that a key is pressed, or released.
+### Handling inputs
+
+Let's deal with inputs. Now introduce two components, `rateTiming` and `touch`.
+
+```haskell
+rate :: Time -> Int
+rate dt
+  | dt < 0.05 = 4
+  | dt < 0.1 = 2
+  | otherwise = 1
+
+touch :: Time -> StateT Timings (System s) Int
+touch t = do
+  ts <- get
+  case viewNearest t ts of
+    Nothing -> return 0 -- The song is over
+    Just (t', ts') -> do
+      put ts'
+      return $ rate $ abs (t - t')
+```
+
+`viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value from a set.
 
 ```haskell
 data Chatter a = Up a | Down a
@@ -161,23 +211,23 @@ All the input-related things is concentrated in the following:
 
 ```haskell
 linkKeyboard $ \ev -> case ev of
-    Down KeySpace -> do
-      ts <- timings .- get
-      t <- deck .- use Deck.pos
-      case viewNearest t ts of
-        Nothing -> return () -- The song is over
-        Just (t', ts') -> do
-          let dt = abs (t - t')
-          timings .- put ts'
-          if dt < 0.05
-            then score .- modify (+4) -- Great!
-            else if dt < 0.1
-              then score .- modify (+2) -- Good
-              else score .- modify (+1) -- Bad...
-    _ -> return () -- Discard the other events
+  Down KeySpace -> do
+    t <- getTime
+    sc <- timings .- touch t
+    score .- modify (+sc)
+  _ -> return () -- Discard the other events
 ```
 
-`viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value. After `linkKeyboard` is called, the engine passes keyboard events. When the space key is pressed, it computes the time difference from the nearest timing, then increment the score by accuracy.
+Note that a few variables has instantiated.
+
+```
+timings <- new $ variable allTimings
+score <- new $ variable 0
+```
+
+After `linkKeyboard` is called, the engine passes keyboard events `Key`. `Key` is wrapped by `Chatter`, to indicate that a key is pressed, or released.
+
+When the space key is pressed, it computes the time difference from the nearest timing, then increment the score by accuracy.
 
 We need to load a _Font_ as we want to show players the current score. `Call.Util.Text.simple` generates a function that renders a supplied text.
 
@@ -185,13 +235,13 @@ We need to load a _Font_ as we want to show players the current score. `Call.Uti
 text <- Text.simple defaultFont 12 -- text :: String -> Picture
 ```
 
-`src/tutorial-active.hs` is the updated source we made interactive. It's a game, yay!
+Just add `text (show sc)` to `renderGame`. `src/tutorial-active.hs` is the updated source we made interactive. It's a game, yay!
 
 ![tutorial-active](images/tutorial-active-screenshot.png)
 
 However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. so players can notice whether their playing is good or bad.
 
-Part II
+Part III: Technical background
 -----------------
 
 ### Graphics
