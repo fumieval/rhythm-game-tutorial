@@ -62,7 +62,7 @@ We want to synchronize graphics with the music. An action that returns the curre
 ```haskell
 prepareMusic :: System s Music
 playMusic :: Music -> System s ()
-getTime :: Music -> System s Time
+getPosition :: Music -> System s Time
 allTimings :: Timings
 renderGame :: Timings -> Time -> Picture
 gameMain :: System s ()
@@ -75,7 +75,7 @@ gameMain :: System s ()
 gameMain = do
   music <- prepareMusic
 
-  linkPicture $ \_ -> renderGame allTimings <$> getTime music
+  linkPicture $ \_ -> renderGame allTimings <$> getPosition music
 
   playMusic music
 
@@ -95,7 +95,7 @@ import Control.Monad.State.Strict
 import Call
 import Call.Util.Deck as Deck
 
-type Music = Inst' (State Deck) (System s)
+type Music s = Inst' (StateT Deck (System s)) (System s)
 
 prepareMusic :: System s Music
 prepareMusic = do
@@ -122,7 +122,7 @@ phases :: Set Time -- ^ timings
     -> [Float] -- ^ phase
 phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
   $ Set.toList
-  $ fst $ Set.split (t + len) -- before the limit
+  $ fst $ Set.split (t + len) s -- before the limit
 ```
 
 Create a function to render circles. Since `Picture` is a monoid, we can use `foldMap` or `mconcat` to combine pictures. `translate (V2 x y)` shifts the picture into (x, y).
@@ -138,21 +138,21 @@ circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` bitmap circle_png)
 `renderGames` passes the result of `phases` into `circles`. Using `color`, we can change the color of picture.
 
 ```haskell
-renderGame :: [Time] -> Time -> Picture
+renderGame :: Set Time -> Time -> Picture
 renderGame ts t = mconcat [color blue $ circles (phases ts 1 t)
     , V2 320 480 `translate` color black (bitmap circle_png) -- criterion
     ]
 ```
 
-### Component: getTime and playMusic
+### Component: getPosition and playMusic
 
-The implementation of `getTime` and `playMusic` is as follows:
+The implementation of `getPosition` and `playMusic` is as follows:
 
 ```haskell
-getTime :: Music -> System s Time
-getTime m = m .- use pos
+getPosition :: Music s -> System s Time
+getPosition m = m .- use pos
 
-playMusic :: Music -> System s ()
+playMusic :: Music s -> System s ()
 playMusic m = m .- playing .= True
 ```
 
@@ -212,7 +212,7 @@ All the input-related things is concentrated in the following:
 ```haskell
 linkKeyboard $ \ev -> case ev of
   Down KeySpace -> do
-    t <- getTime
+    t <- getPosition
     sc <- timings .- touch t
     score .- modify (+sc)
   _ -> return () -- Discard the other events
