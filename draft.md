@@ -37,7 +37,7 @@ $ cabal build
 
 * `objective` gives an abstraction for stateful objects. It is not neccessary strictly, though it kills the pain of state significantly.
 * `call` is a cross-platform multimedia library. While it is small and simple, the essentials of games (2D/3D graphics, audio, input handing from keyboard, mouse and gamepad) is assurable.
-  * `call` depends on `binding-portaudio` for low-level audio APIs. Built-in source is available for installation easiness.
+  * `call` depends on `binding-portaudio` for low-level audio APIs. Built-in source is available for installation ease.
 
 ### On windows
 
@@ -65,7 +65,7 @@ Groove is important. It's time to play a music. `prepareMusic` and `playMusic` w
 
 ```haskell
 main = runSystemDefault $ do
-  music <- prepareMusic "assets/Monoidal-Purity.wav"
+  music <- prepareMusic "assets/Monoidal Purity.wav"
   playMusic music
   stand
 ```
