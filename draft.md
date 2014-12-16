@@ -72,7 +72,7 @@ We will explain these in order.
 
 ### Playing a music
 
-Groove is important. It's time to play a music. `prepareMusic` and `playMusic` will be defined later.
+Groove is important. It's time to play a music. Our first game is as follows:
 
 ```haskell
 main = runSystemDefault $ do
@@ -81,9 +81,15 @@ main = runSystemDefault $ do
   stand
 ```
 
-Note that it takes a moment to load a music.
+Let's execute it:
 
-The following functions are provided by Call engine.
+```shell
+% TBD
+```
+
+Can you hear the music? Note that it takes a moment to load a music.
+
+Let's investigate the code. The following functions are provided by Call engine.
 
 ```haskell
 runSystemDefault :: (forall s. System s a) -> IO a
@@ -92,11 +98,15 @@ stand :: System s ()
 
 In Call, actions are performed on `System s` monad. `runSystemDefault` converts `System s` into `IO`. `stand` does nothing, preventing termination of the program.
 
+The signatures of `prepareMusic` and `playMusic` are as follows:
+
 ```haskell
 type Music = InstOf (System s) (Variable Deck)
 prepareMusic :: FilePath -> System s Music
 playMusic :: Music -> System s ()
 ```
+
+These functions will be defined later.
 
 ### Drawing a picture
 
