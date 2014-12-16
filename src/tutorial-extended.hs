@@ -11,6 +11,7 @@ import Data.List
 import Data.List.Split (splitWhen)
 import Call.Util.Text as Text
 import Data.Functor.Request
+import Control.Object
 
 gameMain :: System s ()
 gameMain = do
@@ -27,7 +28,7 @@ gameMain = do
   linkPicture $ \dt -> do
     [l0, l1, l2] <- forM [0..2] $ \i -> renderLane <$> (timings .- use (ix i)) <*> getPosition music
     s <- score .- get
-    ps <- effects .- announce (request dt)
+    ps <- effects .- announceMaybe (request dt)
     return $ translate (V2 (-120) 0) l0
       <> translate (V2 0 0) l1
       <> translate (V2 120 0) l2
@@ -100,7 +101,7 @@ rate dt
 
 handle :: Time -> Set Time -> ((Int, Object (Request Time Picture) Maybe), Set Time)
 handle t ts = case viewNearest t ts of
-  Nothing -> (0, ts) -- The song is over
+  Nothing -> ((0, pop _error_png), ts) -- The song is over
   Just (t', ts') -> (rate $ abs (t - t'), ts')
 
 viewNearest :: (Num a, Ord a) => a -> Set a -> Maybe (a, Set a)
@@ -113,4 +114,7 @@ viewNearest t ts = case Set.split t ts of
   _ -> Nothing
 
 pop :: Bitmap -> Object (Request Time Picture) Maybe
-pop bmp = transit 0.5 $ \t -> translate (V2 240 240) $ translate (V2 0 (-80) ^* t) $ color (RGBA 1 1 1 (realToFrac $ 1 - t)) $ bitmap bmp
+pop bmp = Control.Object.transit 0.5 $ \t -> translate (V2 320 360)
+  $ translate (V2 0 (-80) ^* t)
+  $ color (RGBA 1 1 1 (realToFrac $ 1 - t))
+  $ bitmap bmp
