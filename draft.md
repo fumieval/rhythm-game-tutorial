@@ -58,9 +58,11 @@ Part II: Creating a game
 
 > Here we bang! -- Wada-don, "Taiko no Tatsujin"
 
+Now, think of a very simple game: There's a circle at the bottom of the window, and another circle(s) is approaching. You hit the space key in exact timing when the another circle overlapped the original one. 
+
 ![tutorial-passive](images/tutorial-passive-screenshot.png)
 
-Now, think of a very simple game: There's a circle at the bottom of the window, and another circle(s) is approaching. You hit the space key in exact timing when the another circle overlapped the original one. How do we implement this? The structure of the program can be derived by writing components down:
+How do we implement this? The structure of the program can be derived by writing components down:
 
 * Game has a picture which depends on the time.
 * A music is playing through the game.
