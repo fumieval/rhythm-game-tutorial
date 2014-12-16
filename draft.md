@@ -93,7 +93,7 @@ Let's construct a graphical part of the game.
 
 ```haskell
 main = runSystemDefault $ do
-  allTimings <- liftIO $ loadTimings "assets/Monoidal-Purity-single.wav"
+  allTimings <- liftIO $ (!!0) <$> parseTimings (60/140*4) <$> readFile "assets/Monoidal-Purity.txt"
   linkPicture $ \_ -> renderLane allTimings <$> getTime
   stand
 ```
@@ -111,7 +111,7 @@ This notation is consist of a number of packets, representing a sequence. Each p
 The implementation of the parser is not so interesting.
 
 ```haskell
-loadTimings :: IO [Set Time]
+parseTimings :: String -> [Set Time]
 ```
 
 Given timings and "life span" of circles, we can compute positions of visible circles from the time.
@@ -150,7 +150,7 @@ Here is an updated `main`.
 ```haskell
 main = runSystemDefault $ do
   music <- prepareMusic "assets/Monoidal-Purity.wav"
-  allTimings <- liftIO $ loadTimings "assets/Monoidal-Purity.wav"
+  allTimings <- fmap (!!0) $ liftIO $ loadTimings "assets/Monoidal-Purity.txt"
   linkPicture $ \_ -> renderLane allTimings <$> getTime
   playMusic music
   stand
