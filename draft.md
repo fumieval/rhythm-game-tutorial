@@ -30,6 +30,7 @@ $ sudo <your-package-manager> install libportaudio19
 $ cabal unpack rhythm-game-tutorial
 $ cd rhythm-game-tutorial-<version>
 $ cabal install --only-dependencies
+% cabal configure
 $ cabal build
 ```
 
