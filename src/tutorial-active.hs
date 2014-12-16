@@ -15,11 +15,11 @@ gameMain :: System s ()
 gameMain = do
   music <- prepareMusic "assets/Monoidal Purity.wav"
 
-  allTimings <- liftIO $ (!!0) <$> parseScore (60/160*4) <$> readFile "assets/Monoidal Purity.txt"
+  allTimings <- liftIO $ parseScore (60/160*4) <$> readFile "assets/Monoidal Purity.txt"
 
   text <- Text.simple defaultFont 18
 
-  timings <- new $ variable allTimings
+  timings <- new $ variable $ allTimings !! 0
   score <- new $ variable 0
 
   linkPicture $ \_ -> do
