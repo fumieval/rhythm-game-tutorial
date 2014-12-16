@@ -72,7 +72,7 @@ We will explain these in order.
 
 ### Playing a music
 
-Groove is important. It's time to play a music. Our first game is as follows:
+Groove is important. It's time to play a music. Our first game is as follows(`src/music-only.hs`):
 
 ```haskell
 main = runSystemDefault $ do
@@ -84,7 +84,7 @@ main = runSystemDefault $ do
 Let's execute it:
 
 ```shell
-% TBD
+$ dist/build/music-only/music-only
 ```
 
 Can you hear the music? Note that it takes a moment to load a music.
@@ -184,7 +184,6 @@ There is a serious problem in this program. The graphics and music may __diverge
 A music is essential for rhythm games.
 
 ```haskell
-
 type Music s = InstOf (System s) (Variable Deck)
 
 prepareMusic :: FilePath -> System s Music
@@ -233,6 +232,10 @@ With lens, we can access a specific element of a structure easily, allowing you 
 
 Putting them together, we got `src/tutorial-passive.hs`.
 
+```shell
+$ dist/build/tutorial-passive/tutorial-passive
+```
+
 It is not a game though -- simply because it has no score, no interaction.
 
 ### Handling inputs
@@ -252,13 +255,13 @@ handle t ts = case viewNearest t ts of
   Just (t', ts') -> (rate $ abs (t - t'), ts')
 ```
 
-`viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value from a set.
+`rate` calculates a score from a time lag. `handle` returns a score and updated timings. `viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value from a set. If we fail to attend to remove a nearest one, flamming the button causes undesired score increment.
 
 ```haskell
 data Chatter a = Up a | Down a
 ```
 
-All the input-related things is concentrated in the following:
+And the following code actually handles events:
 
 ```haskell
 linkKeyboard $ \ev -> case ev of
@@ -288,29 +291,54 @@ text <- Text.simple defaultFont 12 -- text :: String -> Picture
 
 Just add `text (show sc)` to `renderGame`. `src/tutorial-active.hs` is the updated source we made interactive. It's a game, yay!
 
+```shell
+$ dist/build/tutorial-passive/tutorial-active
+```
+
 ![tutorial-active](images/tutorial-active-screenshot.png)
 
 ### Extending the game
 
 However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. So, players can notice whether their playing is good or bad.
 
-Thanks to purely functional design, we can extend columns so easily(`tutorial-extended.hs`)!.
+Thanks to purely functional design, we can extend lanes so easily(`tutorial-extended.hs`)!
 
 ![extended](images/extended.png)
 
 `ix i` is a lens that points an `i`-th element of a list. Just arrange the result of `forM` using `translate`.
 
+Another interesting feature, `transit`, is convenient to create animations.
+
+```haskell
+pop :: Bitmap -> Object (Request Time Picture) Maybe
+pop bmp = Control.Object.transit 0.5 $ \t -> translate (V2 320 360)
+  $ translate (V2 0 (-80) ^* t)
+  $ color (RGBA 1 1 1 (realToFrac $ 1 - t))
+  $ bitmap bmp
+```
+
+The argument `t` varies from 0 to 1, for 0.5 seconds. To instantiate, put this object into a list:
+
+```haskell
+effects <- new $ variable []
+effects .- modify (pop _perfect_png:)
+```
+
+And `effects .- announceMaybe (request dt)` returns `[Picture]`, removing expired animations automatically. It benefits from `objective` much. Here is the complete `linkPicture` section.
+
 ```haskell
 linkPicture $ \_ -> do
   [l0, l1, l2] <- forM [0..2] $ \i -> renderLane <$> (timings .- use (ix i)) <*> getPosition music
   s <- score .- get
+  ps <- effects .- announceMaybe (request dt)
   return $ translate (V2 (-120) 0) l0
     <> translate (V2 0 0) l1
     <> translate (V2 120 0) l2
     <> color black (translate (V2 240 40) (text (show s)))
+    <> mconcat ps
 ```
 
-It is no difficulty around input.
+There is no difficulty around input.
 
 ```
 let touchLane i = do
@@ -323,6 +351,12 @@ linkKeyboard $ \ev -> case ev of
   Down KeyF -> touchLane 0
   Down KeyJ -> touchLane 2
   _ -> return () -- Discard the other events
+```
+
+The overall game goes in just 120 lines!
+
+```shell
+$ dist/build/tutorial-passive/tutorial-extended
 ```
 
 Part III: Technical background
