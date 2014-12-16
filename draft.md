@@ -290,6 +290,8 @@ Just add `text (show sc)` to `renderGame`. `src/tutorial-active.hs` is the updat
 
 ![tutorial-active](images/tutorial-active-screenshot.png)
 
+### Extending the game
+
 However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. So, players can notice whether their playing is good or bad.
 
 Thanks to purely functional design, we can extend columns so easily(`tutorial-extended.hs`)!.
