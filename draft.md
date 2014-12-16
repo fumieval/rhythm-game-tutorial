@@ -26,9 +26,9 @@ Firstly, we have to ensure that you have installed GHC. [Haskell Platform](https
 This package is packed in `rhythm-game-tutorial` package. You can set up by:
 
 ```
-$ sudo your-package-manager install libportaudio19
+$ sudo <your-package-manager> install libportaudio19
 $ cabal unpack rhythm-game-tutorial
-$ cd rhythm-game-tutorial*
+$ cd rhythm-game-tutorial-<version>
 $ cabal install --only-dependencies
 $ cabal build
 ```
