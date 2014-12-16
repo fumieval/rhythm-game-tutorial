@@ -21,12 +21,17 @@ I'd be happy if this tutorial helps your curiosity to create a game.
 Part I: Preparation
 ----
 
-Firstly, we have to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC.
+We need to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC.
 
-This package is packed in `rhythm-game-tutorial` package. You can set up by:
+On Unix or Mac, install `libportaudio19`.
 
 ```
 $ sudo <your-package-manager> install libportaudio19
+```
+
+The source code used in this tutorial is packed in `rhythm-game-tutorial` package. You can download it and set it up by:
+
+```
 $ cabal unpack rhythm-game-tutorial
 $ cd rhythm-game-tutorial-<version>
 $ cabal install --only-dependencies
@@ -38,11 +43,11 @@ $ cabal build
 
 * `objective` gives an abstraction for stateful objects. It is not neccessary strictly, though it kills the pain of state significantly.
 * `call` is a cross-platform multimedia library. While it is small and simple, the essentials of games (2D/3D graphics, audio, input handing from keyboard, mouse and gamepad) is assurable.
-  * `call` depends on `binding-portaudio` for low-level audio APIs. Built-in source is available for installation easiness.
+* `binding-portaudio` is low-level audio APIs.
 
 ### On windows
 
-Unfortunately, installing `bindings-portaudio` is magical on Windows. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.
+Unfortunately, installing `bindings-portaudio` is magical on Windows. So, `bindings-portaudio` provides built-in source for installation easiness. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.
 
 > $ cabal install bindings-portaudio -fBundle -fWASAPI
 
