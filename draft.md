@@ -64,8 +64,11 @@ Now, think of a very simple game: There's a circle at the bottom of the window, 
 
 How do we implement this? The structure of the program can be derived by writing components down:
 
-* Game has a picture which depends on the time.
-* A music is playing through the game.
+* Sound: a music is playing through the game.
+* Visual: pictures depend on the time.
+* User interaction: a user types the space key.
+
+We will explain these in order.
 
 ### Playing a music
 
