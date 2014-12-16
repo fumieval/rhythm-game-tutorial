@@ -21,15 +21,21 @@ I'd be happy if this tutorial helps your curiosity to create a game.
 Part I: Preparation
 ----
 
-Firstly, we have to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC.
+We need to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC.
 
-This package is packed in `rhythm-game-tutorial` package. You can set up by:
+On Unix or Mac, install `libportaudio19`.
 
 ```
-$ sudo your-package-manager install libportaudio19
+$ sudo <your-package-manager> install libportaudio19
+```
+
+The source code used in this tutorial is packed in `rhythm-game-tutorial` package. You can download it and set it up by:
+
+```
 $ cabal unpack rhythm-game-tutorial
-$ cd rhythm-game-tutorial*
+$ cd rhythm-game-tutorial-<version>
 $ cabal install --only-dependencies
+% cabal configure
 $ cabal build
 ```
 
@@ -37,11 +43,11 @@ $ cabal build
 
 * `objective` gives an abstraction for stateful objects. It is not neccessary strictly, though it kills the pain of state significantly.
 * `call` is a cross-platform multimedia library. While it is small and simple, the essentials of games (2D/3D graphics, audio, input handing from keyboard, mouse and gamepad) is assurable.
-  * `call` depends on `binding-portaudio` for low-level audio APIs. Built-in source is available for installation ease.
+* `binding-portaudio` is low-level audio APIs.
 
 ### On windows
 
-Unfortunately, installing `bindings-portaudio` is magical on Windows. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.
+Unfortunately, installing `bindings-portaudio` is magical on Windows. So, `bindings-portaudio` provides built-in source for installation easiness. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.
 
 > $ cabal install bindings-portaudio -fBundle -fWASAPI
 
@@ -52,16 +58,21 @@ Part II: Creating a game
 
 > Here we bang! -- Wada-don, "Taiko no Tatsujin"
 
+Now, think of a very simple game: There's a circle at the bottom of the window, and another circle(s) is approaching. You hit the space key in exact timing when the another circle overlapped the original one.
+
 ![tutorial-passive](images/tutorial-passive-screenshot.png)
 
-Now, think of a very simple game: There's a circle at the bottom of the window, and another circle(s) is approaching. You hit the space key in exact timing when the another circle overlapped the original one. How do we implement this? The structure of the program can be derived by writing components down:
+How do we implement this? The structure of the program can be derived by writing components down:
 
-* Game has a picture which depends on the time.
-* A music is playing through the game.
+* Sound: a music is playing through the game.
+* Graphics: pictures depend on the time.
+* User interaction: a user types the space key.
+
+We will explain these in order.
 
 ### Playing a music
 
-Groove is important. It's time to play a music. `prepareMusic` and `playMusic` will be defined later.
+Groove is important. It's time to play a music. Our first game is as follows:
 
 ```haskell
 main = runSystemDefault $ do
@@ -70,9 +81,15 @@ main = runSystemDefault $ do
   stand
 ```
 
-Note that it takes a moment to load a music.
+Let's execute it:
 
-The following functions are provided by Call engine.
+```shell
+% TBD
+```
+
+Can you hear the music? Note that it takes a moment to load a music.
+
+Let's investigate the code. The following functions are provided by Call engine.
 
 ```haskell
 runSystemDefault :: (forall s. System s a) -> IO a
@@ -81,11 +98,15 @@ stand :: System s ()
 
 In Call, actions are performed on `System s` monad. `runSystemDefault` converts `System s` into `IO`. `stand` does nothing, preventing termination of the program.
 
+The signatures of `prepareMusic` and `playMusic` are as follows:
+
 ```haskell
 type Music = InstOf (System s) (Variable Deck)
 prepareMusic :: FilePath -> System s Music
 playMusic :: Music -> System s ()
 ```
+
+These functions will be defined later.
 
 ### Drawing a picture
 
@@ -269,7 +290,9 @@ Just add `text (show sc)` to `renderGame`. `src/tutorial-active.hs` is the updat
 
 ![tutorial-active](images/tutorial-active-screenshot.png)
 
-However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. so players can notice whether their playing is good or bad.
+### Extending the game
+
+However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. So, players can notice whether their playing is good or bad.
 
 Thanks to purely functional design, we can extend columns so easily(`tutorial-extended.hs`)!.
 
