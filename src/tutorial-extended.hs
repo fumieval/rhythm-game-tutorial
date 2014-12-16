@@ -19,19 +19,26 @@ gameMain = do
 
   text <- Text.simple defaultFont 18
 
-  timings <- new $ variable $ allTimings !! 0
+  timings <- new $ variable allTimings
   score <- new $ variable 0
 
   linkPicture $ \_ -> do
-    l <- renderLane <$> (timings .- get) <*> getPosition music
+    [l0, l1, l2] <- forM [0..2] $ \i -> renderLane <$> (timings .- use (ix i)) <*> getPosition music
     s <- score .- get
-    return $ l <> color black (translate (V2 240 40) (text (show s)))
+    return $ translate (V2 (-120) 0) l0
+      <> translate (V2 0 0) l1
+      <> translate (V2 120 0) l2
+      <> color black (translate (V2 240 40) (text (show s)))
+
+  let touchLane i = do
+        (sc, ts') <- handle <$> getPosition music <*> (timings .- use (ix i))
+        timings .- ix i .= ts'
+        score .- modify (+sc)
 
   linkKeyboard $ \ev -> case ev of
-    Down KeySpace -> do
-      (sc, ts') <- handle <$> getPosition music <*> (timings .- get)
-      timings .- put ts'
-      score .- modify (+sc)
+    Down KeySpace -> touchLane 1
+    Down KeyF -> touchLane 0
+    Down KeyJ -> touchLane 2
     _ -> return () -- Discard the other events
 
   playMusic music

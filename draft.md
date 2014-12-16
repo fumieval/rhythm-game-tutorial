@@ -253,7 +253,7 @@ linkKeyboard $ \ev -> case ev of
 Note that a few variables has instantiated.
 
 ```haskell
-timings <- new $ variable allTimings
+timings <- new $ variable (allTimings !! 0)
 score <- new $ variable 0
 ```
 
@@ -270,6 +270,37 @@ Just add `text (show sc)` to `renderGame`. `src/tutorial-active.hs` is the updat
 ![tutorial-active](images/tutorial-active-screenshot.png)
 
 However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. so players can notice whether their playing is good or bad.
+
+Thanks to purely functional design, we can extend columns so easily(`tutorial-extended.hs`)!.
+
+![extended](images/extended.png)
+
+`ix i` is a lens that points an `i`-th element of a list. Just arrange the result of `forM` using `translate`.
+
+```haskell
+linkPicture $ \_ -> do
+  [l0, l1, l2] <- forM [0..2] $ \i -> renderLane <$> (timings .- use (ix i)) <*> getPosition music
+  s <- score .- get
+  return $ translate (V2 (-120) 0) l0
+    <> translate (V2 0 0) l1
+    <> translate (V2 120 0) l2
+    <> color black (translate (V2 240 40) (text (show s)))
+```
+
+It is no difficulty around input.
+
+```
+let touchLane i = do
+      (sc, ts') <- handle <$> getPosition music <*> (timings .- use (ix i))
+      timings .- ix i .= ts'
+      score .- modify (+sc)
+
+linkKeyboard $ \ev -> case ev of
+  Down KeySpace -> touchLane 1
+  Down KeyF -> touchLane 0
+  Down KeyJ -> touchLane 2
+  _ -> return () -- Discard the other events
+```
 
 Part III: Technical background
 -----------------
