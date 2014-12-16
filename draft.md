@@ -123,7 +123,7 @@ main = runSystemDefault $ do
 
 Due to its game system, we need to prepare the set of times. Let us introduce a new notation to represent timings which is more readable than just the list of decimals.
 
-This notation is consist of a number of packets, representing a sequence. Each packets contain several lines. A [小節] is divided by the length of line. '.' and '-' represents a note and a rest.
+This notation is consist of a number of packets, representing a sequence of bars. Each packets contain several lines. A bar is divided by the length of line. '.' and '-' represents a note and a rest.
 
     ----.-----------
     .-----------.---
