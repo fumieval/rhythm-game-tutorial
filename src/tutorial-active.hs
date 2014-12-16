@@ -17,7 +17,7 @@ gameMain = do
 
   allTimings <- liftIO $ parseScore (60/160*4) <$> readFile "assets/Monoidal Purity.txt"
 
-  text <- Text.simple defaultFont 18
+  text <- Text.simple defaultFont 24
 
   timings <- new $ variable $ allTimings !! 0
   score <- new $ variable 0

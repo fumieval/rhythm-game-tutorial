@@ -1,6 +1,6 @@
 Creating rhythm game with Haskell
 ====
-Fumiaki Kinoshita (part-time employee of IIJ-II)
+Fumiaki Kinoshita (part-time employee of IIJ-II) fumiexcel@gmail.com
 
 Introduction
 ----
@@ -14,7 +14,7 @@ This tutorial has two parts.
 
 * Part I contains an instruction to set up environment required for Part II and III.
 * In Part II, we build a very simple rhythm game. We use the Call engine to develop.
-* Part III introduces some technical backgrounds (graphics, audio) that support Part I.
+* Part III introduces some technical backgrounds (graphics, audio) that support Part II.
 
 I'd be happy if this tutorial helps your curiosity to create a game.
 
@@ -47,7 +47,7 @@ $ cabal build
 
 ### On windows
 
-Unfortunately, installing `bindings-portaudio` is magical on Windows. So, `bindings-portaudio` provides built-in source for installation easiness. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.
+Unfortunately, installing `bindings-portaudio` is magical on Windows. So, `bindings-portaudio` provides built-in source for installation ease. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.
 
 > $ cabal install bindings-portaudio -fBundle -fWASAPI
 
@@ -66,7 +66,7 @@ How do we implement this? The structure of the program can be derived by writing
 
 * Sound: a music is playing through the game.
 * Graphics: pictures depend on the time.
-* User interaction: a user types the space key.
+* User interaction: the score changes when the player hit the space key.
 
 We will explain these in order.
 
@@ -286,7 +286,7 @@ After `linkKeyboard` is called, the engine passes keyboard events `Key`. `Key` i
 We need to load a _Font_ as we want to show players the current score. `Call.Util.Text.simple` generates a function that renders a supplied text.
 
 ```haskell
-text <- Text.simple defaultFont 12 -- text :: String -> Picture
+text <- Text.simple defaultFont 24 -- text :: String -> Picture
 ```
 
 Just add `text (show sc)` to `renderGame`. `src/tutorial-active.hs` is the updated source we made interactive. It's a game, yay!
@@ -424,3 +424,7 @@ class Affine a where
 Currently, there are few packages for audio that work in common platforms and are easy to install. I choosed `portaudio` for now which supports a bunch of backends. Humans are so sensitive about sound. 20 miliseconds of latency is noticable for us.
 
 Thus, it is important to minimize latency when it comes to audio. The raw `portaudio` uses the callback model. This is the main reason of why call relies on callback. `objective` package contributes to relax the pain of handling events and states. The call library aims to be small and concrete so that it only provides a way to interact with the machine.
+
+### About objective
+
+The introduction of objective has started this year.
