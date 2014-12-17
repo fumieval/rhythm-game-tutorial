@@ -114,7 +114,7 @@ viewNearest t ts = case Set.split t ts of
   _ -> Nothing
 
 pop :: Bitmap -> Object (Request Time Picture) Maybe
-pop bmp = Control.Object.transit 0.5 $ \t -> translate (V2 320 360)
+pop bmp = Control.Object.transit 0.5 $ \t -> return $ translate (V2 320 360)
   $ translate (V2 0 (-80) ^* t)
-  $ color (RGBA 1 1 1 (realToFrac $ 1 - t))
+  $ color (V4 1 1 1 (realToFrac $ 1 - t))
   $ bitmap bmp

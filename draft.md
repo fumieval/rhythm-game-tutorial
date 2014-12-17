@@ -313,7 +313,7 @@ Another interesting feature, `transit`, is convenient to create animations.
 pop :: Bitmap -> Object (Request Time Picture) Maybe
 pop bmp = Control.Object.transit 0.5 $ \t -> translate (V2 320 360)
   $ translate (V2 0 (-80) ^* t)
-  $ color (RGBA 1 1 1 (realToFrac $ 1 - t))
+  $ color (V4 1 1 1 (realToFrac $ 1 - t))
   $ bitmap bmp
 ```
 
@@ -425,6 +425,6 @@ Currently, there are few packages for audio that work in common platforms and ar
 
 Thus, it is important to minimize latency when it comes to audio. The raw `portaudio` uses the callback model. This is the main reason of why call relies on callback. `objective` package contributes to relax the pain of handling events and states. The call library aims to be small and concrete so that it only provides a way to interact with the machine.
 
-### About objective
-
-The introduction of objective has started this year.
+Acknowledgements
+-------------------------
+Special thanks to Kazuhiko Yamamoto for guidance of the architecture of this tutorial.
