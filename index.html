@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>Building a rhythm game using Haskell by fumieval</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>Building a rhythm game using Haskell</h1>
+        <h2></h2>
+        <a href="https://github.com/fumieval/rhythm-game-tutorial" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
+<a id="creating-rhythm-game-with-haskell" class="anchor" href="#creating-rhythm-game-with-haskell" aria-hidden="true"><span class="octicon octicon-link"></span></a>Creating rhythm game with Haskell</h1>
+
+<p>Fumiaki Kinoshita (part-time employee of IIJ-II) <a href="mailto:fumiexcel@gmail.com">fumiexcel@gmail.com</a></p>
+
+<h2>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
+
+<p>Rhythm games, also known as rhythm actions, are very popular genre in Japan. Konami released <strong>Dance Dance Revolution (DDR) in 1998</strong> -- it is the best successful game among the genre. Another famous one, <em>Taiko no Tatsujin</em>(literally, <strong>Expert of Japanese drum</strong>) is being immensely supported by broad age-group of people. Today, various forms of rhythm games have been released one after another.</p>
+
+<p>However, there are few tutorials to create such kind of games. Even if there are, they might be too old, or written in non-English, or/and work only in Windows.</p>
+
+<p>This tutorial focuses on creating a rhythm game without pain. Don't be surprised, we use Haskell to do that.</p>
+
+<p>This tutorial has two parts.</p>
+
+<ul>
+<li>Part I contains an instruction to set up environment required for Part II and III.</li>
+<li>In Part II, we build a very simple rhythm game. We use the Call engine to develop.</li>
+<li>Part III introduces some technical backgrounds (graphics, audio) that support Part II.</li>
+</ul>
+
+<p>I'd be happy if this tutorial helps your curiosity to create a game.</p>
+
+<h2>
+<a id="part-i-preparation" class="anchor" href="#part-i-preparation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Part I: Preparation</h2>
+
+<p>We need to ensure that you have installed GHC. <a href="https://www.haskell.org/platform/">Haskell Platform</a> is an easy way to install GHC.</p>
+
+<p>On Unix or Mac, install <code>libportaudio19</code>.</p>
+
+<pre><code>$ sudo &lt;your-package-manager&gt; install libportaudio19
+</code></pre>
+
+<p>The source code used in this tutorial is packed in <code>rhythm-game-tutorial</code> package. You can download it and set it up by:</p>
+
+<pre><code>$ cabal unpack rhythm-game-tutorial
+$ cd rhythm-game-tutorial-&lt;version&gt;
+$ cabal install --only-dependencies
+% cabal configure
+$ cabal build
+</code></pre>
+
+<p><code>cabal install --only-dependencies</code> installs a bunch of packages, including two vital packages: <code>objective</code> and <code>call</code>.</p>
+
+<ul>
+<li>
+<code>objective</code> establishes abstraction for stateful objects. It is not neccessary strictly, though it kills the pain of state significantly.</li>
+<li>
+<code>call</code> is a cross-platform multimedia library. While it is small and simple, the essentials of games (2D/3D graphics, audio, input handing from keyboard, mouse and gamepad) is assurable.</li>
+<li>
+<code>binding-portaudio</code> is low-level audio APIs.</li>
+</ul>
+
+<h3>
+<a id="on-windows" class="anchor" href="#on-windows" aria-hidden="true"><span class="octicon octicon-link"></span></a>On windows</h3>
+
+<p>Unfortunately, installing <code>bindings-portaudio</code> is magical on Windows. So, <code>bindings-portaudio</code> provides built-in source for installation ease. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.</p>
+
+<blockquote>
+<p>$ cabal install bindings-portaudio -fBundle -fWASAPI</p>
+</blockquote>
+
+<p>If it throws up something messy, please report to me.</p>
+
+<h2>
+<a id="part-ii-creating-a-game" class="anchor" href="#part-ii-creating-a-game" aria-hidden="true"><span class="octicon octicon-link"></span></a>Part II: Creating a game</h2>
+
+<blockquote>
+<p>Here we bang! -- Wada-don, "Taiko no Tatsujin"</p>
+</blockquote>
+
+<p>Now, think of a very simple game: There's a circle at the bottom of the window, and another circle(s) is approaching. You hit the space key in exact timing when the another circle overlapped the original one.</p>
+
+<p><img src="images/tutorial-passive-screenshot.png" alt="tutorial-passive"></p>
+
+<p>How do we implement this? The structure of the program can be derived by writing components down:</p>
+
+<ul>
+<li>Sound: a music is playing through the game.</li>
+<li>Graphics: pictures depend on the time.</li>
+<li>User interaction: the score changes when the player hit the space key.</li>
+</ul>
+
+<p>We will explain these in order.</p>
+
+<h3>
+<a id="playing-a-music" class="anchor" href="#playing-a-music" aria-hidden="true"><span class="octicon octicon-link"></span></a>Playing a music</h3>
+
+<p>Groove is important. It's time to play a music. Our first game is as follows(<code>src/music-only.hs</code>):</p>
+
+<div class="highlight highlight-haskell"><pre>main = runSystemDefault $ <span class="pl-k">do</span>
+  music &lt;- prepareMusic <span class="pl-s1"><span class="pl-pds">"</span>assets/Monoidal Purity.wav<span class="pl-pds">"</span></span>
+  playMusic music
+  stand</pre></div>
+
+<p>Let's execute it:</p>
+
+<div class="highlight highlight-shell"><pre>$ dist/build/music-only/music-only</pre></div>
+
+<p>Can you hear the music? Note that it takes a moment to load a music.</p>
+
+<p>Let's investigate the code. The following functions are provided by Call engine.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">runSystemDefault</span> <span class="pl-k">::</span> (<span class="pl-vo">forall</span> <span class="pl-vo">s</span>. <span class="pl-st">System</span> <span class="pl-vo">s</span> <span class="pl-vo">a</span>) <span class="pl-k">-&gt;</span> <span class="pl-s3">IO</span> <span class="pl-vo">a</span>
+<span class="pl-en">stand</span> <span class="pl-k">::</span> <span class="pl-st">System</span> <span class="pl-vo">s</span> <span class="pl-sc">()</span></pre></div>
+
+<p>In Call, actions are performed on <code>System s</code> monad. <code>runSystemDefault</code> converts <code>System s</code> into <code>IO</code>. <code>stand</code> does nothing, preventing termination of the program.</p>
+
+<p>The signatures of <code>prepareMusic</code> and <code>playMusic</code> are as follows:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">type</span> <span class="pl-c1">Music</span> s = <span class="pl-c1">Inst</span> (<span class="pl-c1">System</span> s) (<span class="pl-c1">StateT</span> <span class="pl-c1">Deck</span> (<span class="pl-c1">System</span> s)) (<span class="pl-c1">System</span> s)
+
+<span class="pl-en">prepareMusic</span> <span class="pl-k">::</span> <span class="pl-s3">FilePath</span> <span class="pl-k">-&gt;</span> <span class="pl-st">System</span> <span class="pl-vo">s</span> <span class="pl-st">Music</span>
+<span class="pl-en">playMusic</span> <span class="pl-k">::</span> <span class="pl-st">Music</span> <span class="pl-k">-&gt;</span> <span class="pl-st">System</span> <span class="pl-vo">s</span> <span class="pl-sc">()</span></pre></div>
+
+<p>These functions will be defined later.</p>
+
+<h3>
+<a id="drawing-a-picture" class="anchor" href="#drawing-a-picture" aria-hidden="true"><span class="octicon octicon-link"></span></a>Drawing a picture</h3>
+
+<p>Let's construct a graphical part of the game.</p>
+
+<div class="highlight highlight-haskell"><pre>main = runSystemDefault $ <span class="pl-k">do</span>
+  allTimings &lt;- liftIO $ (!!<span class="pl-c1">0</span>) &lt;$&gt; parseTimings (<span class="pl-c1">60</span>/<span class="pl-c1">140</span>*<span class="pl-c1">4</span>) &lt;$&gt; <span class="pl-s3">readFile</span> <span class="pl-s1"><span class="pl-pds">"</span>assets/Monoidal-Purity.txt<span class="pl-pds">"</span></span>
+  linkPicture $ \_ -&gt; renderLane allTimings &lt;$&gt; getTime
+  stand</pre></div>
+
+<p><code>linkPicture :: (Time -&gt; System s Picture) -&gt; System ()</code> is the only function provided by Call to actually draw something.<code>linkPicture f</code> repeatedly calls <code>f</code> and draws the result of <code>f</code> to the window. The argument of <code>f</code> is the time difference between frames, it is often negilible though.</p>
+
+<p>Due to its game system, we need to prepare the set of times. Let us introduce a new notation to represent timings which is more readable than just the list of decimals.</p>
+
+<p>This notation is consist of a number of packets, representing a sequence of bars. Each packets contain several lines. A bar is divided by the length of line. '.' and '-' represents a note and a rest.</p>
+
+<pre><code>----.-----------
+.-----------.---
+--------.-------
+</code></pre>
+
+<p>The implementation of the parser is not so interesting.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">parseTimings</span> <span class="pl-k">::</span> <span class="pl-s3">String</span> <span class="pl-k">-&gt;</span> [<span class="pl-st">Set</span> <span class="pl-st">Time</span>]</pre></div>
+
+<p>Given timings and "life span" of circles, we can compute positions of visible circles from the time.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">phases</span> <span class="pl-k">::</span> <span class="pl-st">Set</span> <span class="pl-st">Time</span> <span class="pl-c">-- ^ timings</span>
+    -&gt; <span class="pl-c1">Time</span> <span class="pl-c">-- ^ life span</span>
+    -&gt; <span class="pl-c1">Time</span> <span class="pl-c">-- ^ the current time</span>
+    -&gt; [<span class="pl-c1">Float</span>] <span class="pl-c">-- ^ phase</span>
+phases s len t = <span class="pl-s3">map</span> ((/len) . <span class="pl-s3">subtract</span> t) <span class="pl-c">-- transform to an interval [0, 1]</span>
+  $ <span class="pl-c1">Set</span>.toList
+  $ <span class="pl-s3">fst</span> $ <span class="pl-c1">Set</span>.split (t + len) s <span class="pl-c">-- before the limit</span></pre></div>
+
+<p>Create a function to render circles. Since <code>Picture</code> is a monoid, we can use <code>foldMap</code> or <code>mconcat</code> to combine pictures. <code>translate (V2 x y)</code> shifts the picture into (x, y). <code>bitmap b</code> turns a <code>Bitmap</code> into a <code>Picture</code>.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">circle_png</span> <span class="pl-k">::</span> <span class="pl-st">Bitmap</span>
+circle_png = unsafePerformIO $ readBitmap <span class="pl-s1"><span class="pl-pds">"</span>assets/circle.png<span class="pl-pds">"</span></span>
+
+<span class="pl-en">circles</span> <span class="pl-k">::</span> [<span class="pl-s3">Float</span>] <span class="pl-k">-&gt;</span> <span class="pl-st">Picture</span>
+circles = foldMap (\p -&gt; <span class="pl-c1">V2</span> <span class="pl-c1">320</span> ((<span class="pl-c1">1</span> - p) * <span class="pl-c1">480</span>) <span class="pl-k">`translate`</span> bitmap circle_png)</pre></div>
+
+<p><code>renderLane</code> passes the result of <code>phases</code> into <code>circles</code>. <code>color</code> changes a color of a picture.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">renderLane</span> <span class="pl-k">::</span> <span class="pl-st">Set</span> <span class="pl-st">Time</span> <span class="pl-k">-&gt;</span> <span class="pl-st">Time</span> <span class="pl-k">-&gt;</span> <span class="pl-st">Picture</span>
+renderLane ts t = mconcat [color blue $ circles (phases ts <span class="pl-c1">1</span> t)
+    , <span class="pl-c1">V2</span> <span class="pl-c1">320</span> <span class="pl-c1">480</span> <span class="pl-k">`translate`</span> color black (bitmap circle_png) <span class="pl-c">-- criterion</span>
+    ]</pre></div>
+
+<p>Here is an updated <code>main</code>.</p>
+
+<div class="highlight highlight-haskell"><pre>main = runSystemDefault $ <span class="pl-k">do</span>
+  music &lt;- prepareMusic <span class="pl-s1"><span class="pl-pds">"</span>assets/Monoidal-Purity.wav<span class="pl-pds">"</span></span>
+  allTimings &lt;- <span class="pl-s3">fmap</span> (!!<span class="pl-c1">0</span>) $ liftIO $ loadTimings <span class="pl-s1"><span class="pl-pds">"</span>assets/Monoidal-Purity.txt<span class="pl-pds">"</span></span>
+  linkPicture $ \_ -&gt; renderLane allTimings &lt;$&gt; getTime
+  playMusic music
+  stand</pre></div>
+
+<p>There is a serious problem in this program. The graphics and music may <strong>diverge</strong> when the program has stumbled accidentally. We need to use the musical time instead of the real one.</p>
+
+<h3>
+<a id="component-preparemusic" class="anchor" href="#component-preparemusic" aria-hidden="true"><span class="octicon octicon-link"></span></a>Component: prepareMusic</h3>
+
+<p>A music is essential for rhythm games.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">type</span> <span class="pl-c1">Music</span> s = <span class="pl-c1">InstOf</span> (<span class="pl-c1">System</span> s) (<span class="pl-c1">Variable</span> <span class="pl-c1">Deck</span>)
+
+<span class="pl-en">prepareMusic</span> <span class="pl-k">::</span> <span class="pl-s3">FilePath</span> <span class="pl-k">-&gt;</span> <span class="pl-st">System</span> <span class="pl-vo">s</span> <span class="pl-st">Music</span>
+prepareMusic path = <span class="pl-k">do</span>
+  wav &lt;- readWAVE path
+  i &lt;- new $ variable $ source .~ sampleSource wav $ <span class="pl-c1">Deck</span>.empty
+  linkAudio $ playbackOf i
+  <span class="pl-s3">return</span> i</pre></div>
+
+<p><code>readWAVE</code> loads a sound from <code>.wav</code> file.<code>source .~ sampleSource wav $ Deck.empty</code> is a bit tricky.</p>
+
+<p>Deck is an utility to play a music. <code>source</code> is a <code>Lens</code> which is purely functional representation of accessors. This tutorial explains about <code>Lens</code> later, in Part III. <code>new $ variable $ v</code> instantiates a music. Regard <code>linkAudio $ playbackOf i</code> as a cliché for now.</p>
+
+<h3>
+<a id="component-getposition-and-playmusic" class="anchor" href="#component-getposition-and-playmusic" aria-hidden="true"><span class="octicon octicon-link"></span></a>Component: getPosition and playMusic</h3>
+
+<p>The implementation of <code>getPosition</code> and <code>playMusic</code> is as follows:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">getPosition</span> <span class="pl-k">::</span> <span class="pl-st">Music</span> <span class="pl-vo">s</span> <span class="pl-k">-&gt;</span> <span class="pl-st">System</span> <span class="pl-vo">s</span> <span class="pl-st">Time</span>
+getPosition m = m .- use pos
+
+<span class="pl-en">playMusic</span> <span class="pl-k">::</span> <span class="pl-st">Music</span> <span class="pl-vo">s</span> <span class="pl-k">-&gt;</span> <span class="pl-st">System</span> <span class="pl-vo">s</span> <span class="pl-sc">()</span>
+playMusic m = m .- playing .= <span class="pl-sc">True</span></pre></div>
+
+<p>You notice two new operators: <code>use</code> and <code>.=</code>. These comes from the <code>lens</code> library. This package contains types and utilities to deal with various accessors.</p>
+
+<p><code>pos</code>, <code>playing</code> are <code>Lens</code>. Given <code>Lens' s a</code>, you can take and modify a value <code>a</code> from <code>s</code>.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">pos</span> <span class="pl-k">::</span> <span class="pl-st">Lens'</span> <span class="pl-st">Deck</span> <span class="pl-st">Time</span>
+<span class="pl-en">playing</span> <span class="pl-k">::</span> <span class="pl-st">Lens'</span> <span class="pl-st">Deck</span> <span class="pl-s3">Bool</span></pre></div>
+
+<p><code>use</code> and <code>(.=)</code> are getting/setting operators that work on stateful monads.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">use</span> <span class="pl-k">::</span> <span class="pl-st">MonadState</span> <span class="pl-vo">s</span> <span class="pl-vo">m</span> <span class="pl-k">=&gt;</span> <span class="pl-st">Lens'</span> <span class="pl-vo">s</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">m</span> <span class="pl-vo">a</span>
+(.=) :: <span class="pl-c1">MonadState</span> s m =&gt; <span class="pl-c1">Lens'</span> s a -&gt; a -&gt; m <span class="pl-c1">()</span></pre></div>
+
+<p>With lens, we can access a specific element of a structure easily, allowing you manipulate just like "fields" in OOP languages. However, the state of the deck is packed in <code>music</code> in <code>gameMain</code> so these can't be used directly. The <code>(.-)</code> operator, provided by <code>objective</code> package, executes an action within a context held by a left operand.</p>
+
+<p><code>getPosition m</code> returns an accurate time (in seconds) elapsed from an origin of a music <code>m</code>.</p>
+
+<p>Putting them together, we got <code>src/tutorial-passive.hs</code>.</p>
+
+<div class="highlight highlight-shell"><pre>$ dist/build/tutorial-passive/tutorial-passive</pre></div>
+
+<p>It is not a game though -- simply because it has no score, no interaction.</p>
+
+<h3>
+<a id="handling-inputs" class="anchor" href="#handling-inputs" aria-hidden="true"><span class="octicon octicon-link"></span></a>Handling inputs</h3>
+
+<p>Let's deal with inputs. Now introduce two components, <code>rate</code> and <code>handle</code>.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">rate</span> <span class="pl-k">::</span> <span class="pl-st">Time</span> <span class="pl-k">-&gt;</span> <span class="pl-s3">Int</span>
+rate dt
+  | dt &lt; <span class="pl-c1">0.05</span> = <span class="pl-c1">4</span>
+  | dt &lt; <span class="pl-c1">0.1</span> = <span class="pl-c1">2</span>
+  | <span class="pl-s3">otherwise</span> = <span class="pl-c1">1</span>
+
+<span class="pl-en">handle</span> <span class="pl-k">::</span> <span class="pl-st">Time</span> <span class="pl-k">-&gt;</span> <span class="pl-st">Set</span> <span class="pl-st">Time</span> <span class="pl-k">-&gt;</span> (<span class="pl-s3">Int</span>, <span class="pl-st">Set</span> <span class="pl-st">Time</span>)
+handle t ts = <span class="pl-k">case</span> viewNearest t ts <span class="pl-k">of</span>
+  <span class="pl-sc">Nothing</span> -&gt; (<span class="pl-c1">0</span>, ts) <span class="pl-c">-- The song is over</span>
+  <span class="pl-sc">Just</span> (t', ts') -&gt; (rate $ <span class="pl-s3">abs</span> (t - t'), ts')</pre></div>
+
+<p><code>rate</code> calculates a score from a time lag. <code>handle</code> returns a score and updated timings. <code>viewNearest :: (Num a, Ord a) =&gt; a -&gt; Set a -&gt; (a, Set a)</code> is a function to pick up the nearest value from a set. If we fail to attend to remove a nearest one, flamming the button causes undesired score increment.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">data</span> <span class="pl-c1">Chatter</span> a = <span class="pl-c1">Up</span> a | <span class="pl-c1">Down</span> a</pre></div>
+
+<p>And the following code actually handles events:</p>
+
+<div class="highlight highlight-haskell"><pre>linkKeyboard $ \ev -&gt; <span class="pl-k">case</span> ev <span class="pl-k">of</span>
+  <span class="pl-c1">Down</span> <span class="pl-c1">KeySpace</span> -&gt; <span class="pl-k">do</span>
+    t &lt;- getPosition
+    ts &lt;- timings .- get
+    (sc, ts') &lt;- handle t ts
+    timings .- put ts'
+    score .- modify (+sc)
+  _ -&gt; <span class="pl-s3">return</span> <span class="pl-c1">()</span> <span class="pl-c">-- Discard the other events</span></pre></div>
+
+<p>Note that a few variables has instantiated.</p>
+
+<div class="highlight highlight-haskell"><pre>timings &lt;- new $ variable (allTimings !! <span class="pl-c1">0</span>)
+score &lt;- new $ variable <span class="pl-c1">0</span></pre></div>
+
+<p>After <code>linkKeyboard</code> is called, the engine passes keyboard events <code>Key</code>. <code>Key</code> is wrapped by <code>Chatter</code> to indicate that a key is pressed, or released. When the space key is pressed, it computes the time difference from the nearest timing and increment the score by accuracy.</p>
+
+<p>We need to load a <em>Font</em> as we want to show players the current score. <code>Call.Util.Text.simple</code> generates a function that renders a supplied text.</p>
+
+<div class="highlight highlight-haskell"><pre>text &lt;- <span class="pl-c1">Text</span>.simple defaultFont <span class="pl-c1">24</span> <span class="pl-c">-- text :: String -&gt; Picture</span></pre></div>
+
+<p>Just add <code>text (show sc)</code> to <code>renderGame</code>. <code>src/tutorial-active.hs</code> is the updated source we made interactive. It's a game, yay!</p>
+
+<div class="highlight highlight-shell"><pre>$ dist/build/tutorial-passive/tutorial-active</pre></div>
+
+<p><img src="images/tutorial-active-screenshot.png" alt="tutorial-active"></p>
+
+<h3>
+<a id="extending-the-game" class="anchor" href="#extending-the-game" aria-hidden="true"><span class="octicon octicon-link"></span></a>Extending the game</h3>
+
+<p>However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. So, players can notice whether their playing is good or bad.</p>
+
+<p>Thanks to purely functional design, we can extend lanes so easily(<code>tutorial-extended.hs</code>)!</p>
+
+<p><img src="images/extended.png" alt="extended"></p>
+
+<p><code>ix i</code> is a lens that points an <code>i</code>-th element of a list. Just arrange the result of <code>forM</code> using <code>translate</code>.</p>
+
+<p>Another interesting feature, <code>transit</code>, is convenient to create animations.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-en">pop</span> <span class="pl-k">::</span> <span class="pl-st">Bitmap</span> <span class="pl-k">-&gt;</span> <span class="pl-st">Object</span> (<span class="pl-st">Request</span> <span class="pl-st">Time</span> <span class="pl-st">Picture</span>) <span class="pl-s3">Maybe</span>
+pop bmp = <span class="pl-c1">Control</span>.<span class="pl-c1">Object</span>.transit <span class="pl-c1">0.5</span> $ \t -&gt; translate (<span class="pl-c1">V2</span> <span class="pl-c1">320</span> <span class="pl-c1">360</span>)
+  $ translate (<span class="pl-c1">V2</span> <span class="pl-c1">0</span> (-<span class="pl-c1">80</span>) ^* t)
+  $ color (<span class="pl-c1">V4</span> <span class="pl-c1">1</span> <span class="pl-c1">1</span> <span class="pl-c1">1</span> (<span class="pl-s3">realToFrac</span> $ <span class="pl-c1">1</span> - t))
+  $ bitmap bmp</pre></div>
+
+<p>The argument <code>t</code> varies from 0 to 1, for 0.5 seconds. To instantiate, put this object into a list:</p>
+
+<div class="highlight highlight-haskell"><pre>effects &lt;- new $ variable <span class="pl-c1">[]</span>
+effects .- modify (pop _perfect_png:)</pre></div>
+
+<p>And <code>effects .- announceMaybe (request dt)</code> returns <code>[Picture]</code>, removing expired animations automatically. It benefits from <code>objective</code> much. Here is the complete <code>linkPicture</code> section.</p>
+
+<div class="highlight highlight-haskell"><pre>linkPicture $ \_ -&gt; <span class="pl-k">do</span>
+  [l0, l1, l2] &lt;- forM [<span class="pl-c1">0</span>..<span class="pl-c1">2</span>] $ \i -&gt; renderLane &lt;$&gt; (timings .- use (ix i)) &lt;*&gt; getPosition music
+  s &lt;- score .- get
+  ps &lt;- effects .- announceMaybe (request dt)
+  <span class="pl-s3">return</span> $ translate (<span class="pl-c1">V2</span> (-<span class="pl-c1">120</span>) <span class="pl-c1">0</span>) l0
+    &lt;&gt; translate (<span class="pl-c1">V2</span> <span class="pl-c1">0</span> <span class="pl-c1">0</span>) l1
+    &lt;&gt; translate (<span class="pl-c1">V2</span> <span class="pl-c1">120</span> <span class="pl-c1">0</span>) l2
+    &lt;&gt; color black (translate (<span class="pl-c1">V2</span> <span class="pl-c1">240</span> <span class="pl-c1">40</span>) (text (<span class="pl-s3">show</span> s)))
+    &lt;&gt; mconcat ps</pre></div>
+
+<p>There is no difficulty around input.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">let</span> touchLane i = <span class="pl-k">do</span>
+      (sc, ts') &lt;- handle &lt;$&gt; getPosition music &lt;*&gt; (timings .- use (ix i))
+      timings .- ix i .= ts'
+      score .- modify (+sc)
+
+linkKeyboard $ \ev -&gt; <span class="pl-k">case</span> ev <span class="pl-k">of</span>
+  <span class="pl-c1">Down</span> <span class="pl-c1">KeySpace</span> -&gt; touchLane <span class="pl-c1">1</span>
+  <span class="pl-c1">Down</span> <span class="pl-c1">KeyF</span> -&gt; touchLane <span class="pl-c1">0</span>
+  <span class="pl-c1">Down</span> <span class="pl-c1">KeyJ</span> -&gt; touchLane <span class="pl-c1">2</span>
+  _ -&gt; <span class="pl-s3">return</span> <span class="pl-c1">()</span> <span class="pl-c">-- Discard the other events</span></pre></div>
+
+<p>The overall game goes in just 120 lines!</p>
+
+<div class="highlight highlight-shell"><pre>$ dist/build/tutorial-passive/tutorial-extended</pre></div>
+
+<h2>
+<a id="part-iii-technical-background" class="anchor" href="#part-iii-technical-background" aria-hidden="true"><span class="octicon octicon-link"></span></a>Part III: Technical background</h2>
+
+<h3>
+<a id="graphics" class="anchor" href="#graphics" aria-hidden="true"><span class="octicon octicon-link"></span></a>Graphics</h3>
+
+<p>Monoid is the general term for composable stuff which has "empty". A picture is one of the monoids since there is an <strong>empty picture</strong> and pictures <strong>can be composed</strong> by overlaying. The standard library <code>base</code> provides a typeclass for monoids:</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">class</span> <span class="pl-e">Monoid</span> <span class="pl-vo">a</span> <span class="pl-k">where</span>
+  <span class="pl-en">mempty</span> <span class="pl-k">::</span> <span class="pl-vo">a</span>
+  <span class="pl-en">mappend</span> <span class="pl-k">::</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span></pre></div>
+
+<p>Call uses <em>free monoid</em> to represent picture.</p>
+
+<p>In de-CPSed form,</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">data</span> <span class="pl-c1">Scene</span> = <span class="pl-c1">Empty</span>
+  | <span class="pl-c1">Combine</span> <span class="pl-c1">Scene</span> <span class="pl-c1">Scene</span>
+  | <span class="pl-c1">Primitive</span> <span class="pl-c1">Bitmap</span> <span class="pl-c1">PrimitiveMode</span> (<span class="pl-c1">Vector</span> <span class="pl-c1">Vertex</span>) <span class="pl-c">-- draw a primitive</span>
+  | <span class="pl-c1">VFX</span> (<span class="pl-c1">VFX</span> <span class="pl-c1">Scene</span>) <span class="pl-c">-- apply visual effects</span>
+  | <span class="pl-c1">Transform</span> (<span class="pl-c1">M44</span> <span class="pl-c1">Float</span>) <span class="pl-c1">Scene</span> <span class="pl-c">-- transform `Scene` using a matrix</span></pre></div>
+
+<p>Its Monoid instance is trivial.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">instance</span> <span class="pl-st">Monoid</span> <span class="pl-st">Scene</span> <span class="pl-k">where</span>
+  mempty = <span class="pl-c1">Empty</span>
+  mappend = <span class="pl-c1">Combine</span></pre></div>
+
+<p>Using free monoid, we can isolate the drawing process from <code>Scene</code>. Think of <code>drawScene :: Scene -&gt; IO ()</code> which calls concrete APIs to draw Scene. For empty picture, we don't do nothing. <code>Combine a b</code> is equivalent to calling <code>drawScene a &gt;&gt; drawScene b</code>.</p>
+
+<p>So the implementation of <code>drawScene</code> will be as follows:</p>
+
+<div class="highlight highlight-haskell"><pre>drawScene <span class="pl-c1">Empty</span> = <span class="pl-s3">return</span> <span class="pl-c1">()</span>
+drawScene (<span class="pl-c1">Combine</span> a b) = drawScene a &gt;&gt; drawScene b
+drawScene (<span class="pl-c1">Primitive</span> b m vs) = drawPrimitive b m vs
+drawScene (<span class="pl-c1">VFX</span> v) = drawScene (applyVFX v)
+drawScene (<span class="pl-c1">Transform</span> mat s) = withMatrix mat (drawScene s)</pre></div>
+
+<p>where <code>drawPrimitive</code>, <code>applyVFX</code>, <code>withMatrix</code> is environment-dependent.</p>
+
+<p>In other words, free structures is a kind of DSL which encourages the reusability and independence of programs. Andres Löh's <a href="https://skillsmatter.com/skillscasts/4430-monads-for-free">Monads for free!</a> is a great introduction for free structures.</p>
+
+<p>Call puts together a few kinds of transformation in <code>Affine</code> class. Thanks to type families, we can use the same operation for both 2D and 3D. <code>Normal</code> is the normal vector, which is 3-dimensional vector in 3D but it is just <code>Float</code> in 2D.</p>
+
+<div class="highlight highlight-haskell"><pre><span class="pl-k">class</span> <span class="pl-e">Affine</span> <span class="pl-vo">a</span> <span class="pl-k">where</span>
+  <span class="pl-k">type</span> <span class="pl-c1">Vec</span> a :: *
+  <span class="pl-k">type</span> <span class="pl-c1">Normal</span> a :: *
+  <span class="pl-en">rotateOn</span> <span class="pl-k">::</span> <span class="pl-st">Normal</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span>
+  <span class="pl-en">scale</span> <span class="pl-k">::</span> <span class="pl-st">Vec</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span>
+  <span class="pl-en">translate</span> <span class="pl-k">::</span> <span class="pl-st">Vec</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span></pre></div>
+
+<h3>
+<a id="audio" class="anchor" href="#audio" aria-hidden="true"><span class="octicon octicon-link"></span></a>Audio</h3>
+
+<p>Currently, there are few packages for audio that work in common platforms and are easy to install. I choosed <code>portaudio</code> for now which supports a bunch of backends. Humans are so sensitive about sound. 20 miliseconds of latency is noticable for us.</p>
+
+<p>Thus, it is important to minimize latency when it comes to audio. The raw <code>portaudio</code> uses the callback model. This is the main reason of why call relies on callback. <code>objective</code> package contributes to relax the pain of handling events and states. The call library aims to be small and concrete so that it only provides a way to interact with the machine.</p>
+
+<h2>
+<a id="acknowledgements" class="anchor" href="#acknowledgements" aria-hidden="true"><span class="octicon octicon-link"></span></a>Acknowledgements</h2>
+
+<p>Special thanks to Kazuhiko Yamamoto for guidance of the architecture of this tutorial.</p>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/fumieval/rhythm-game-tutorial/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/fumieval/rhythm-game-tutorial/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/fumieval/rhythm-game-tutorial"></a> is maintained by <a href="https://github.com/fumieval">fumieval</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+  
+  </body>
+</html>
