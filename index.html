@@ -345,7 +345,8 @@ effects .- modify (pop _perfect_png:)</pre></div>
 <p>There is no difficulty around input.</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-k">let</span> touchLane i = <span class="pl-k">do</span>
-      (sc, ts') &lt;- handle &lt;$&gt; getPosition music &lt;*&gt; (timings .- use (ix i))
+      ((sc, obj), ts') &lt;- handle &lt;$&gt; getPosition music &lt;*&gt; (timings .- use (ix i))
+      effects .- modify (obj:)
       timings .- ix i .= ts'
       score .- modify (+sc)
 
@@ -440,6 +441,16 @@ drawScene (<span class="pl-c1">Transform</span> mat s) = withMatrix mat (drawSce
       </div>
     </div>
 
-  
+            <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-57795243-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
   </body>
 </html>
