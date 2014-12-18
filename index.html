@@ -356,9 +356,13 @@ linkKeyboard $ \ev -&gt; <span class="pl-k">case</span> ev <span class="pl-k">of
   <span class="pl-c1">Down</span> <span class="pl-c1">KeyJ</span> -&gt; touchLane <span class="pl-c1">2</span>
   _ -&gt; <span class="pl-s3">return</span> <span class="pl-c1">()</span> <span class="pl-c">-- Discard the other events</span></pre></div>
 
-<p>The overall game goes in just 120 lines!</p>
+<p>Moreover, with <code>LambdaCase</code> GHC extension, you can replace <code>\ev -&gt; case ev of</code> with <code>\case</code>.</p>
 
-<div class="highlight highlight-shell"><pre>$ dist/build/tutorial-passive/tutorial-extended</pre></div>
+<p>The overall game goes in only 120 lines!</p>
+
+<div class="highlight highlight-shell"><pre>$ wc -l src<span class="pl-cce">\t</span>utorial-extended.hs
+120
+$ dist/build/tutorial-passive/tutorial-extended</pre></div>
 
 <h2>
 <a id="part-iii-technical-background" class="anchor" href="#part-iii-technical-background" aria-hidden="true"><span class="octicon octicon-link"></span></a>Part III: Technical background</h2>
