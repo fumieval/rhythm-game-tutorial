@@ -402,9 +402,9 @@ drawScene (<span class="pl-c1">Primitive</span> b m vs) = drawPrimitive b m vs
 drawScene (<span class="pl-c1">VFX</span> v) = drawScene (applyVFX v)
 drawScene (<span class="pl-c1">Transform</span> mat s) = withMatrix mat (drawScene s)</pre></div>
 
-<p>where <code>drawPrimitive</code>, <code>applyVFX</code>, <code>withMatrix</code> is environment-dependent.</p>
+<p>where <code>drawPrimitive</code>, <code>applyVFX</code>, <code>withMatrix</code> are environment-dependent.</p>
 
-<p>In other words, free structures is a kind of DSL which encourages the reusability and independence of programs. Andres Löh's <a href="https://skillsmatter.com/skillscasts/4430-monads-for-free">Monads for free!</a> is a great introduction for free structures.</p>
+<p>In other words, free structures are kinds of DSL which encourages the reusability of programs. Andres Löh's <a href="https://skillsmatter.com/skillscasts/4430-monads-for-free">Monads for free!</a> is a great introduction for free structures.</p>
 
 <p>Call puts together a few kinds of transformation in <code>Affine</code> class. Thanks to type families, we can use the same operation for both 2D and 3D. <code>Normal</code> is the normal vector, which is 3-dimensional vector in 3D but it is just <code>Float</code> in 2D.</p>
 
