@@ -15,7 +15,9 @@ stability:           experimental
 cabal-version:       >=1.10
 
 data-files:
-  assets/*
+  assets/*.wav
+  assets/*.png
+  assets/*.txt
 
 source-repository head
   type: git
