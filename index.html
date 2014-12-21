@@ -89,9 +89,7 @@ $ cabal build
 
 <p>Unfortunately, installing <code>bindings-portaudio</code> is magical on Windows. So, <code>bindings-portaudio</code> provides built-in source for installation ease. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.</p>
 
-<blockquote>
-<p>$ cabal install bindings-portaudio -fBundle -fWASAPI</p>
-</blockquote>
+<div class="highlight highlight-shell"><pre>$ cabal install bindings-portaudio -fBundle -fWASAPI</pre></div>
 
 <p>If it throws up something messy, please report to me.</p>
 
@@ -109,9 +107,12 @@ $ cabal build
 <p>How do we implement this? The structure of the program can be derived by writing components down:</p>
 
 <ul>
-<li>Sound: a music is playing through the game.</li>
-<li>Graphics: pictures depend on the time.</li>
-<li>User interaction: the score changes when the player hit the space key.</li>
+<li>
+<strong>Sound</strong>: a music is playing through the game.</li>
+<li>
+<strong>Graphics</strong>: pictures depend on the time.</li>
+<li>
+<strong>Interaction</strong>: the score changes when the player hit the space key.</li>
 </ul>
 
 <p>We will explain these in order.</p>
@@ -185,6 +186,8 @@ phases s len t = <span class="pl-s3">map</span> ((/len) . <span class="pl-s3">su
 
 <p>Create a function to render circles. Since <code>Picture</code> is a monoid, we can use <code>foldMap</code> or <code>mconcat</code> to combine pictures. <code>translate (V2 x y)</code> shifts the picture into (x, y). <code>bitmap b</code> turns a <code>Bitmap</code> into a <code>Picture</code>.</p>
 
+<p><code>unsafePerformIO</code>, which has the type <code>IO a -&gt; a</code>, looks really uncunny function. The use of <code>unsafePerformIO</code> must be limited to passive, <strong>virtually constant</strong> operations like <code>getArgs</code>, <code>readBitmap</code>, etc.</p>
+
 <div class="highlight highlight-haskell"><pre><span class="pl-en">circle_png</span> <span class="pl-k">::</span> <span class="pl-st">Bitmap</span>
 circle_png = unsafePerformIO $ readBitmap <span class="pl-s1"><span class="pl-pds">"</span>assets/circle.png<span class="pl-pds">"</span></span>
 
@@ -225,7 +228,7 @@ prepareMusic path = <span class="pl-k">do</span>
 
 <p><code>readWAVE</code> loads a sound from <code>.wav</code> file.<code>source .~ sampleSource wav $ Deck.empty</code> is a bit tricky.</p>
 
-<p>Deck is an utility to play a music. <code>source</code> is a <code>Lens</code> which is purely functional representation of accessors. This tutorial explains about <code>Lens</code> later, in Part III. <code>new $ variable $ v</code> instantiates a music. Regard <code>linkAudio $ playbackOf i</code> as a cliché for now.</p>
+<p>Deck is an utility to play a music. <code>source</code> is a <code>Lens</code> which is purely functional representation of accessors. <code>new $ variable $ v</code> instantiates a music. Regard <code>linkAudio $ playbackOf i</code> as a cliché for now.</p>
 
 <h3>
 <a id="component-getposition-and-playmusic" class="anchor" href="#component-getposition-and-playmusic" aria-hidden="true"><span class="octicon octicon-link"></span></a>Component: getPosition and playMusic</h3>
@@ -378,7 +381,7 @@ $ dist/build/tutorial-passive/tutorial-extended</pre></div>
   <span class="pl-en">mempty</span> <span class="pl-k">::</span> <span class="pl-vo">a</span>
   <span class="pl-en">mappend</span> <span class="pl-k">::</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span> <span class="pl-k">-&gt;</span> <span class="pl-vo">a</span></pre></div>
 
-<p>Call uses <em>free monoid</em> to represent picture.</p>
+<p>Call uses <strong>free monoid</strong> to represent picture.</p>
 
 <p>In de-CPSed form,</p>
 
