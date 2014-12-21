@@ -423,9 +423,9 @@ drawScene (<span class="pl-c1">Transform</span> mat s) = withMatrix mat (drawSce
 <h3>
 <a id="audio" class="anchor" href="#audio" aria-hidden="true"><span class="octicon octicon-link"></span></a>Audio</h3>
 
-<p>Currently, there are few packages for audio that work in common platforms and are easy to install. I choosed <code>portaudio</code> for now which supports a bunch of backends. Humans are so sensitive about sound. 20 miliseconds of latency is noticable for us.</p>
+<p>Currently, there are few packages for audio that work in common platforms and are easy to install. I choosed <code>portaudio</code> for now which supports a bunch of backends. Humans are so sensitive about sound; 20 miliseconds of latency is noticable for us.</p>
 
-<p>Thus, it is important to minimize latency when it comes to audio. The raw <code>portaudio</code> uses the callback model. This is the main reason of why call relies on callback. <code>objective</code> package contributes to relax the pain of handling events and states. The call library aims to be small and concrete so that it only provides a way to interact with the machine.</p>
+<p>Thus, it is important to minimize latency when it comes to audio. This is the main reason of why call relies on callback. The call library aims to be small and concrete, leaving abstraction to <code>objective</code>.</p>
 
 <h2>
 <a id="acknowledgements" class="anchor" href="#acknowledgements" aria-hidden="true"><span class="octicon octicon-link"></span></a>Acknowledgements</h2>
