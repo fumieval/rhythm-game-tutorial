@@ -17,20 +17,19 @@ Fumiaki Kinoshita (IIJ-IIでバイト) fumiexcel@gmail.com
 
 このチュートリアルによりゲームを作りたいという意欲が出たら嬉しいです。
 
-Part I: Preparation
+パート I： 準備
 ----
+まずはGHCをインストールしなければなりません。[Haskell Platform](https://www.haskell.org/platform/) でインストールするのが楽です。
 
-We need to ensure that you have installed GHC. [Haskell Platform](https://www.haskell.org/platform/) is an easy way to install GHC.
+UnixかMacでは `libportaudio19` をインストールしてください。
 
-On Unix or Mac, install `libportaudio19`.
-
-__Note: Currently Call doesn't draw bitmaps well on Mac OS X. Please help me figure out what goes wrong.__
+__注意：現時点で Call はMac OS Xにてビットマップをちゃんと描画してくれません。原因を分かる人が居れば教えて下さい。__
 
 ```
 $ sudo <your-package-manager> install libportaudio19
 ```
 
-The source code used in this tutorial is packed in `rhythm-game-tutorial` package. You can download it and set it up by:
+このチュートリアルで使われるソースコードは `rhythm-game-tutorial` パッケージにあります。以下のコマンドでダウンロードとセットアップが出来ます：
 
 ```
 $ cabal unpack rhythm-game-tutorial
@@ -40,21 +39,21 @@ $ cabal install --only-dependencies
 $ cabal build
 ```
 
-`cabal install --only-dependencies` installs a bunch of packages, including two vital packages: `objective` and `call`.
+`cabal install --only-dependencies` で様々なパッケージがインストールされます。中でも `objective` と `call` は重要なパッケージです。
 
-* `objective` establishes abstraction for stateful objects. It is not neccessary strictly, though it kills the pain of state significantly.
-* `call` is a cross-platform multimedia library. While it is small and simple, the essentials of games (2D/3D graphics, audio, input handing from keyboard, mouse and gamepad) is assurable.
-* `binding-portaudio` is low-level audio APIs.
+* `objective` はステートフルなオブジェクトの抽象化をしてくれます。必要ではないがステートを扱うときの苦痛を和らいでくれます。
+* `call` はクロスプラットフォームなマルチメディアライブラリです。軽量でシンプルでありながら、ゲームで使う様々な媒体（2D/3Dグラフィックス、オーディオ、キーボード・マウス・ゲームパッドからの入力等）に対応しています。
+* `binding-portaudio` は低水準なオーディオのAPIです。
 
-### On windows
+### Windowsにて
 
-`bindings-portaudio` provides built-in source for installation ease. Unfortunately, due to a GHC bug, it is sometimes unstable. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.
+`bindings-portaudio` はインストールを楽にするためのソースを含んでいます。残念ながらGHCのバグにより時折不安定です。Windows x64の場合32ビット版を使ったほうが安定しているのでこういった問題は回避できます。
 
 ```shell
 $ cabal install bindings-portaudio -fBundle -fWASAPI
 ```
 
-If it throws up something messy, please report to me.
+よくわからないエラーを投げてきた場合は私に報告してください。
 
 Part II: Creating a game
 -------------------------------------------------
