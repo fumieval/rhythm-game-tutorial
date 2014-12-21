@@ -93,5 +93,5 @@ viewNearest t ts = case Set.split t ts of
     | t - a < b - t -> Just (a, sa' `Set.union` sb)
     | otherwise -> Just (b, sa `Set.union` sb')
   (Set.maxView -> Just (a, sa'), _) -> Just (a, sa')
-  (_, Set.minView -> Just (b, sb')) -> Just (t, sb')
+  (_, Set.minView -> Just (b, sb')) -> Just (b, sb')
   _ -> Nothing
