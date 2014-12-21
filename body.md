@@ -1,22 +1,21 @@
-Creating rhythm game with Haskell
+Haskellで作るリズムゲーム
 ====
-Fumiaki Kinoshita (part-time employee of IIJ-II) fumiexcel@gmail.com
+Fumiaki Kinoshita (IIJ-IIでバイト) fumiexcel@gmail.com
 
-Introduction
+イントロ
 ----
-Rhythm games, also known as rhythm actions, are very popular genre in Japan. Konami released __Dance Dance Revolution (DDR) in 1998__ -- it is the best successful game among the genre. Another famous one, _Taiko no Tatsujin_(literally, __Expert of Japanese drum__) is being immensely supported by broad age-group of people. Today, various forms of rhythm games have been released one after another.
+リズムゲームは日本で人気なゲームジャンルの1つです。__1998年にDance Dance Revolution (DDR)__ がコナミから発表されてジャンルの中で最も成功している。他に__太鼓の達人__も幅広い年代の人に愛されています。今日も次々と色んな種類のリズムゲームが発表されています。
 
-However, there are few tutorials to create such kind of games. Even if there are, they might be too old, or written in non-English, or/and work only in Windows.
+しかし、この類のゲームのチュートリアルは少ない。あったとしても古すぎたりWindowsでしか動作しなかったりします。
 
-This tutorial focuses on creating a rhythm game without pain. Don't be surprised, we use Haskell to do that.
+このチュートリアルは苦痛無くリズムゲームを作れるようにと書きました。驚く無かれ、Haskellを使えばできます。
 
-This tutorial has two parts.
+このチュートリアルは3つのパートに分かれています：
+* パートIはパートIIとIIIで必要となってくる環境構築について。
+* パートIIではシンプルなリズムゲームを作ります。Callエンジンを利用します。
+* パートIIIはパートIIを支える技術的な背景（グラフィック、オーディオ等）を紹介します。
 
-* Part I contains an instruction to set up environment required for Part II and III.
-* In Part II, we build a very simple rhythm game. We use the Call engine to develop.
-* Part III introduces some technical backgrounds (graphics, audio) that support Part II.
-
-I'd be happy if this tutorial helps your curiosity to create a game.
+このチュートリアルによりゲームを作りたいという意欲が出たら嬉しいです。
 
 Part I: Preparation
 ----
