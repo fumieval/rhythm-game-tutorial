@@ -55,26 +55,26 @@ $ cabal install bindings-portaudio -fBundle -fWASAPI
 
 よくわからないエラーを投げてきた場合は私に報告してください。
 
-Part II: Creating a game
+パート II: ゲームを作る
 -------------------------------------------------
 
-> Here we bang! -- Wada-don, "Taiko no Tatsujin"
+> さあ始まるドン！ -- 和田ドン、 "太鼓の達人"
 
-Now, think of a very simple game: There's a circle at the bottom of the window, and another circle(s) is approaching. You hit the space key in exact timing when the another circle overlapped the original one.
+シンプルなゲームを思い浮かべてください：画面下に丸があって、他の丸が上から迫ってきます。ちょうど重なったタイミングでスペースキーを押すゲームです。
 
 ![tutorial-passive](images/tutorial-passive-screenshot.png)
 
-How do we implement this? The structure of the program can be derived by writing components down:
+どのようにして実装すればいいでしょうか？プログラムの構造は以下の要素から成り立ちます：
 
-* __Sound__: a music is playing through the game.
-* __Graphics__: pictures depend on the time.
-* __Interaction__: the score changes when the player hit the space key.
+* __音楽__: ゲーム中に音楽が流れています。
+* __グラフィックス__: 時間によってグラフィックスが変わります。
+* __インタラクション__: プレイヤーがスペースキーを押した時にスコアが更新されます。
 
-We will explain these in order.
+順に説明していきます。
 
-### Playing a music
+### 音楽を再生する
 
-Groove is important. It's time to play a music. Our first game is as follows(`src/music-only.hs`):
+グルーヴは大事です。音楽を再生しましょう。最初のゲームです(`src/music-only.hs`)：
 
 ```haskell
 main = runSystemDefault $ do
@@ -83,24 +83,24 @@ main = runSystemDefault $ do
   stand
 ```
 
-Let's execute it:
+実行しましょう：
 
 ```shell
 $ dist/build/music-only/music-only
 ```
 
-Can you hear the music? Note that it takes a moment to load a music.
+音楽が聴こえますか？音楽をロードするのに少々時間かかります。
 
-Let's investigate the code. The following functions are provided by Call engine.
+コードを見てみましょう。以下の関数が Call エンジンによる定義されています。
 
 ```haskell
 runSystemDefault :: (forall s. System s a) -> IO a
 stand :: System s ()
 ```
 
-In Call, actions are performed on `System s` monad. `runSystemDefault` converts `System s` into `IO`. `stand` does nothing, preventing termination of the program.
+Call では`System s` モナドにアクションが実行されます。`runSystemDefault` が `System s` を `IO` へと変換します。`stand` は何もしませんがプログラムの終了を止めます。
 
-The signatures of `prepareMusic` and `playMusic` are as follows:
+`prepareMusic` と `playMusic` のシグネチャは以下の通りです：
 
 ```haskell
 type Music s = Inst (System s) (StateT Deck (System s)) (System s)
@@ -109,7 +109,7 @@ prepareMusic :: FilePath -> System s Music
 playMusic :: Music -> System s ()
 ```
 
-These functions will be defined later.
+これらの関数は後ほど定義します。
 
 ### Drawing a picture
 
