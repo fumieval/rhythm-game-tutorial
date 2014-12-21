@@ -186,7 +186,7 @@ phases s len t = <span class="pl-s3">map</span> ((/len) . <span class="pl-s3">su
 
 <p>Create a function to render circles. Since <code>Picture</code> is a monoid, we can use <code>foldMap</code> or <code>mconcat</code> to combine pictures. <code>translate (V2 x y)</code> shifts the picture into (x, y). <code>bitmap b</code> turns a <code>Bitmap</code> into a <code>Picture</code>.</p>
 
-<p><code>unsafePerformIO</code>, which has the type <code>IO a -&gt; a</code>, looks really uncunny function. The use of <code>unsafePerformIO</code> must be limited to passive, <strong>virtually constant</strong> operations like <code>getArgs</code>, <code>readBitmap</code>, etc.</p>
+<p><code>unsafePerformIO</code>, which has the type <code>IO a -&gt; a</code>, looks really uncanny function. The use of <code>unsafePerformIO</code> must be limited to passive, <strong>virtually constant</strong> operations like <code>getArgs</code>, <code>readBitmap</code>, etc.</p>
 
 <div class="highlight highlight-haskell"><pre><span class="pl-en">circle_png</span> <span class="pl-k">::</span> <span class="pl-st">Bitmap</span>
 circle_png = unsafePerformIO $ readBitmap <span class="pl-s1"><span class="pl-pds">"</span>assets/circle.png<span class="pl-pds">"</span></span>
