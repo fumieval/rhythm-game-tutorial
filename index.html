@@ -87,7 +87,7 @@ $ cabal build
 <h3>
 <a id="on-windows" class="anchor" href="#on-windows" aria-hidden="true"><span class="octicon octicon-link"></span></a>On windows</h3>
 
-<p>Unfortunately, installing <code>bindings-portaudio</code> is magical on Windows. So, <code>bindings-portaudio</code> provides built-in source for installation ease. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.</p>
+<p><code>bindings-portaudio</code> provides built-in source for installation ease. Unfortunately, due to a GHC bug, it is sometimes unstable. Note that using 32-bit version of GHC is safer to avoid problems if your platform is Windows x64.</p>
 
 <div class="highlight highlight-shell"><pre>$ cabal install bindings-portaudio -fBundle -fWASAPI</pre></div>
 
