@@ -111,9 +111,9 @@ playMusic :: Music -> System s ()
 
 これらの関数は後ほど定義します。
 
-### Drawing a picture
+### 画像の描画
 
-Let's construct a graphical part of the game.
+ゲームのグラフィカルな部分を作っていきましょう。
 
 ```haskell
 main = runSystemDefault $ do
@@ -122,23 +122,23 @@ main = runSystemDefault $ do
   stand
 ```
 
-`linkPicture :: (Time -> System s Picture) -> System ()` is the only function provided by Call to actually draw something.`linkPicture f` repeatedly calls `f` and draws the result of `f` to the window. The argument of `f` is the time difference between frames, it is often negilible though.
+`linkPicture :: (Time -> System s Picture) -> System ()` がCallで定義されている唯一の何かを描画するための関数です。`linkPicture f` が繰り返し `f` を呼びその結果をウィンドウに描画します。`f` の引数はフレーム間の時間ですが普通は考えなくてよいです。
 
-Due to its game system, we need to prepare the set of times. Let us introduce a new notation to represent timings which is more readable than just the list of decimals.
+ゲームシステムの仕様のため、タイミング等を設定しないといけません。ここでただの数字の羅列よりも読みやすいタイミングの表記法を紹介します。
 
-This notation is consist of a number of packets, representing a sequence of bars. Each packets contain several lines. A bar is divided by the length of line. '.' and '-' represents a note and a rest.
+この表記法はいくつかのパケットによって成り立っていて、複数の小節を表しています。一つのパケットごとに複数の列を含んでいます。小節は列の長さにより分割されます。'.' は音符、'-' は休符です。
 
     ----.-----------
     .-----------.---
     --------.-------
 
-The implementation of the parser is not so interesting.
+パーサーの実装は単純です。
 
 ```haskell
 parseTimings :: String -> [Set Time]
 ```
 
-Given timings and "life span" of circles, we can compute positions of visible circles from the time.
+タイミングと丸の"寿命"があれば現在の時刻から丸の位置を計算できます。
 
 ```haskell
 phases :: Set Time -- ^ timings
@@ -150,9 +150,9 @@ phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
   $ fst $ Set.split (t + len) s -- before the limit
 ```
 
-Create a function to render circles. Since `Picture` is a monoid, we can use `foldMap` or `mconcat` to combine pictures. `translate (V2 x y)` shifts the picture into (x, y). `bitmap b` turns a `Bitmap` into a `Picture`.
+丸を描画する関数を作る。`Picture` はモノイドなので `foldMap` か `mconcat` を使って画像を組み合わせることができます。`translate (V2 x y)` を使って画像を (x, y) の座標へシフトさせます。`bitmap b` を使って `Bitmap` を `Picture` に変換します。
 
-`unsafePerformIO`, which has the type `IO a -> a`, looks really uncanny function. The use of `unsafePerformIO` must be limited to passive, __virtually constant__ operations like `getArgs`, `readBitmap`, etc.
+`unsafePerformIO` の型は `IO a -> a` であって見た感じとても見慣れない感じでしょう。`unsafePerformIO` の使用は `getArgs` や `readBitmap` のような__コンスタント__な操作にのみ限定されるべきです。
 
 ```haskell
 circle_png :: Bitmap
@@ -162,7 +162,7 @@ circles :: [Float] -> Picture
 circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` bitmap circle_png)
 ```
 
-`renderLane` passes the result of `phases` into `circles`. `color` changes a color of a picture.
+`renderLane` は `phases` の結果を `circles` に渡します。 `color` で画像の色を指定します。
 
 ```haskell
 renderLane :: Set Time -> Time -> Picture
@@ -171,7 +171,7 @@ renderLane ts t = mconcat [color blue $ circles (phases ts 1 t)
     ]
 ```
 
-Here is an updated `main`.
+現時点での `main` はこんな感じです。
 
 ```haskell
 main = runSystemDefault $ do
@@ -182,11 +182,11 @@ main = runSystemDefault $ do
   stand
 ```
 
-There is a serious problem in this program. The graphics and music may __diverge__ when the program has stumbled accidentally. We need to use the musical time instead of the real one.
+このプログラムにはまだ重要な問題点があります。なんらかの問題でプログラムがつまずくと画像と音楽が__ズレる__可能性があります。実際の時間ではなく音楽の時間を元にタイミングをとらないといけません。
 
-### Component: prepareMusic
+### コンポーネント: prepareMusic
 
-A music is essential for rhythm games.
+リズムゲームにおいて音楽は欠かせません。
 
 ```haskell
 type Music s = InstOf (System s) (Variable Deck)
@@ -199,13 +199,13 @@ prepareMusic path = do
   return i
 ```
 
-`readWAVE` loads a sound from `.wav` file.`source .~ sampleSource wav $ Deck.empty` is a bit tricky.
+`readWAVE` は `.wav` ファイルから音楽をロードします。 `source .~ sampleSource wav $ Deck.empty` の部分が少々トリッキーです。
 
-Deck is an utility to play a music. `source` is a `Lens` which is purely functional representation of accessors. `new $ variable $ v` instantiates a music. Regard `linkAudio $ playbackOf i` as a cliché for now.
+Deck は音楽を再生するためのユーティリティです。 `source` は `Lens` で純粋で関数型なアクセサの表現です。 `new $ variable $ v` が音楽を初期化します。 `linkAudio $ playbackOf i` は今はおまじないとでも思っててください。
 
-### Component: getPosition and playMusic
+### コンポーネント: getPosition と playMusic
 
-The implementation of `getPosition` and `playMusic` is as follows:
+`getPosition` と `playMusic` の実装は以下の通りです：
 
 ```haskell
 getPosition :: Music s -> System s Time
@@ -215,33 +215,33 @@ playMusic :: Music s -> System s ()
 playMusic m = m .- playing .= True
 ```
 
-You notice two new operators: `use` and `.=`. These comes from the `lens` library. This package contains types and utilities to deal with various accessors.
+ここで新しく2つの演算子が登場します： `use` と `.=` です。これらは `lens` ライブラリからです。このパッケージは様々のアクセサを扱うための型やユーティリティを含んでいます。
 
-`pos`, `playing` are `Lens`. Given `Lens' s a`, you can take and modify a value `a` from `s`.
+`pos` と `playing` は `Lens` です。 `Lens' s a` では `a` の値の取得の操作を `s` から出来ます。
 
 ```haskell
 pos :: Lens' Deck Time
 playing :: Lens' Deck Bool
 ```
 
-`use` and `(.=)` are getting/setting operators that work on stateful monads.
+`use` と `(.=)` はステートフルモナドに対して使える値を取得・設定するための演算子です。
 
 ```haskell
 use :: MonadState s m => Lens' s a -> m a
 (.=) :: MonadState s m => Lens' s a -> a -> m ()
 ```
 
-With lens, we can access a specific element of a structure easily, allowing you manipulate just like "fields" in OOP languages. However, the state of the deck is packed in `music` in `gameMain` so these can't be used directly. The `(.-)` operator, provided by `objective` package, executes an action within a context held by a left operand.
+lens を利用すればオブジェクトの一部へのアクセスを容易にできて、オブジェクト指向言語でいうメンバー変数のようなものを操作が出来ます。ですが deck のステートは `gameMain` の `music` にパックされているので直接は操作できません。 `objective` パッケージの `(.-)` 演算子は特定の操作を実行できます。
 
-`getPosition m` returns an accurate time (in seconds) elapsed from an origin of a music `m`.
+`getPosition m` は音楽 `m` からの経過時間を秒数で正確に返します。
 
-Putting them together, we got `src/tutorial-passive.hs`.
+ここまでのソースをまとめたのがこれです `src/tutorial-passive.hs` 。
 
 ```shell
 $ dist/build/tutorial-passive/tutorial-passive
 ```
 
-It is not a game though -- simply because it has no score, no interaction.
+ですがまだゲームではありません。スコアもインタラクションもないです。
 
 ### Handling inputs
 
