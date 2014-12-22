@@ -369,12 +369,12 @@ $ wc -l src\tutorial-extended.hs
 $ dist/build/tutorial-passive/tutorial-extended
 ```
 
-Part III: Technical background
+パート III: 技術的背景
 -----------------
 
-### Graphics
+### グラフィックス
 
-Monoid is the general term for composable stuff which has "empty". A picture is one of the monoids since there is an __empty picture__ and pictures __can be composed__ by overlaying. The standard library `base` provides a typeclass for monoids:
+合成可能な物で "empty" を含む物のことをモノイドと呼びます。__空の画像__ やオーバーレイすることにより __画像の合成__ が可能なので画像もモノイドです。標準ライブラリの `base` はモノイドの型クラスを定義しています：
 
 ```haskell
 class Monoid a where
@@ -382,9 +382,10 @@ class Monoid a where
   mappend :: a -> a -> a
 ```
 
+Call は __フリーモノイド__ を利用して画像を表現しています。
 Call uses __free monoid__ to represent picture.
 
-In de-CPSed form,
+CPS(継続渡しスタイル)ではなく表現すると、
 
 ```haskell
 data Scene = Empty
@@ -394,7 +395,7 @@ data Scene = Empty
   | Transform (M44 Float) Scene -- 行列を使って `Scene` を変換する
 ```
 
-Its Monoid instance is trivial.
+モノイドインスタンスは単純です。
 
 ```haskell
 instance Monoid Scene where
@@ -402,9 +403,9 @@ instance Monoid Scene where
   mappend = Combine
 ```
 
-Using free monoid, we can isolate the drawing process from `Scene`. Think of `drawScene :: Scene -> IO ()` which calls concrete APIs to draw Scene. For empty picture, we don't do nothing. `Combine a b` is equivalent to calling `drawScene a >> drawScene b`.
+フリーモノイドを利用すると描画の部分を `Scene` と切り分けることができます。 `drawScene :: Scene -> IO ()` はAPIを利用してSceneを描画します。空の画像の場合何もしません。 `Combine a b` は `drawScene a >> drawScene b` を呼ぶのと同義です。
 
-So the implementation of `drawScene` will be as follows:
+`drawScene` の実装は以下のようになります：
 
 ```haskell
 drawScene Empty = return ()
@@ -414,11 +415,11 @@ drawScene (VFX v) = drawScene (applyVFX v)
 drawScene (Transform mat s) = withMatrix mat (drawScene s)
 ```
 
-where `drawPrimitive`, `applyVFX`, `withMatrix` are environment-dependent.
+`drawPrimitive`、 `applyVFX`、 `withMatrix` は環境依存です。
 
-In other words, free structures are kinds of DSL which encourages the reusability of programs. Andres Löh's [Monads for free!](https://skillsmatter.com/skillscasts/4430-monads-for-free) is a great introduction for free structures.
+free structure はドメイン固有言語の一種でプログラムの再利用を促進します。Andres Löh氏の [Monads for free!](https://skillsmatter.com/skillscasts/4430-monads-for-free) は free structure について勉強したいならオススメです。
 
-Call puts together a few kinds of transformation in `Affine` class. Thanks to type families, we can use the same operation for both 2D and 3D. `Normal` is the normal vector, which is 3-dimensional vector in 3D but it is just `Float` in 2D.
+Call は様々な変換を `Affine` クラスに定義しています。型族のおかげさまで同じ変換を2Dと3Dで利用できます。 `Normal` は法線ベクトルで3Dでは三次元ベクトルですが2Dではただの `Float` です。
 
 ```haskell
 class Affine a where
@@ -429,12 +430,12 @@ class Affine a where
   translate :: Vec a -> a -> a
 ```
 
-### Audio
+### オーディオ
 
-Currently, there are few packages for audio that work in common platforms and are easy to install. I choosed `portaudio` for now which supports a bunch of backends. Humans are so sensitive about sound; 20 miliseconds of latency is noticable for us.
+現在色んなオーディオのパッケージが存在しどれも色んな環境で簡単にインストールできます。その中で私は様々なバックエンドをサポートする `portaudio` を選択しました。人間は音に敏感でほんの20ミリ秒の誤差でも気づきます。
 
-Thus, it is important to minimize latency when it comes to audio. This is the main reason of why call relies on callback. The call library aims to be small and concrete, leaving abstraction to `objective`.
+故に、音ズレは特に最小限に抑えたいです。これが Call がコールバックを利用する最大の理由です。Callは軽量で丈夫なライブラリを目指していて、抽象化は `objective` に任せています。
 
-Acknowledgements
+謝辞
 -------------------------
-Special thanks to Kazuhiko Yamamoto for guidance of the architecture of this tutorial.
+Kazuhiko Yamamoto さんにこのチュートリアルの設計を手伝っていただきました。
