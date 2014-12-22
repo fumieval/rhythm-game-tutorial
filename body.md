@@ -124,7 +124,7 @@ main = runSystemDefault $ do
   stand
 ```
 
-`linkPicture :: (Time -> System s Picture) -> System ()` is the only function provided by Call to actually draw something.`linkPicture f` repeatedly calls `f` and draws the result of `f` to the window. The argument of `f` is the time difference between frames, it is often negilible though.
+`linkPicture :: (Time -> System s Picture) -> System ()` is the only function provided by Call to actually draw something.`linkPicture f` repeatedly calls `f` and draws the result of `f` to the window. The argument of `f` is the time difference between frames, it is often negligible though.
 
 Due to its game system, we need to prepare the set of times. Let us introduce a new notation to represent timings which is more readable than just the list of decimals.
 
