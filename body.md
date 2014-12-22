@@ -243,9 +243,9 @@ $ dist/build/tutorial-passive/tutorial-passive
 
 ですがまだゲームではありません。スコアもインタラクションもないです。
 
-### Handling inputs
+### 入力処理
 
-Let's deal with inputs. Now introduce two components, `rate` and `handle`.
+入力の処理をしていきましょう。ここで新たに2つのコンポーネントを紹介します、 `rate` と `handle` です。
 
 ```haskell
 rate :: Time -> Int
@@ -260,13 +260,13 @@ handle t ts = case viewNearest t ts of
   Just (t', ts') -> (rate $ abs (t - t'), ts')
 ```
 
-`rate` calculates a score from a time lag. `handle` returns a score and updated timings. `viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` is a function to pick up the nearest value from a set. If we fail to attend to remove a nearest one, flamming the button causes undesired score increment.
+`rate` はタイムラグを元にスコアを計算します。 `handle` はスコアと更新されたタイミングを返します。 `viewNearest :: (Num a, Ord a) => a -> Set a -> (a, Set a)` はセットから最も近い値を返す関数です。もし一番近い値を返すのに失敗したらでたらめにボタンを押すことで予期せぬスコアの増加を許してしまいます。
 
 ```haskell
 data Chatter a = Up a | Down a
 ```
 
-And the following code actually handles events:
+以下のコードがイベントの処理をします。
 
 ```haskell
 linkKeyboard $ \ev -> case ev of
@@ -279,22 +279,22 @@ linkKeyboard $ \ev -> case ev of
   _ -> return () -- Discard the other events
 ```
 
-Note that a few variables has instantiated.
+いくつかの変数が初期化されています。
 
 ```haskell
 timings <- new $ variable (allTimings !! 0)
 score <- new $ variable 0
 ```
 
-After `linkKeyboard` is called, the engine passes keyboard events `Key`. `Key` is wrapped by `Chatter` to indicate that a key is pressed, or released. When the space key is pressed, it computes the time difference from the nearest timing and increment the score by accuracy.
+`linkKeyboard` が呼ばれる時、エンジンはキーボードのイベントを `Key` へ送ります。 `Key` はキーが押されてるか離されたかを識別するため `Chatter` によりラップされています。スペースキーが押された時、タイムラグを一番近いタイミングから計算し、正確度によってスコアを増加させます。
 
-We need to load a _Font_ as we want to show players the current score. `Call.Util.Text.simple` generates a function that renders a supplied text.
+プレイヤーに現在のスコアを表示するために _フォント_ もロードしないといけません。 `Call.Util.Text.simple` は与えられたテキストを描画する関数を返してくれます。
 
 ```haskell
 text <- Text.simple defaultFont 24 -- text :: String -> Picture
 ```
 
-Just add `text (show sc)` to `renderGame`. `src/tutorial-active.hs` is the updated source we made interactive. It's a game, yay!
+`renderGame` に `text (show sc)` を追加するだけです。現時点のインタラクションを追加したソースはこちらです `src/tutorial-active.hs` 。ゲームですね！わーい！
 
 ```shell
 $ dist/build/tutorial-passive/tutorial-active
@@ -302,17 +302,17 @@ $ dist/build/tutorial-passive/tutorial-active
 
 ![tutorial-active](images/tutorial-active-screenshot.png)
 
-### Extending the game
+### ゲームを拡張する
 
-However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. So, players can notice whether their playing is good or bad.
+実際に遊んでみるとガッカリしちゃうでしょう。インタラクションがまだあまりよくないからです。もっとかっこいいエフェクトとかあれば楽しくなります。最近のリズムゲームは判定をすぐさま表示します。そうすればプレイヤーは自分がちゃんとプレイが上手いかどうかすぐわかります。
 
-Thanks to purely functional design, we can extend lanes so easily(`tutorial-extended.hs`)!
+純粋関数型なデザインのおかげさまでレーンを簡単に拡張できます（ `tutorial-extended.hs` ）！
 
 ![extended](images/extended.png)
 
-`ix i` is a lens that points an `i`-th element of a list. Just arrange the result of `forM` using `translate`.
+`ix i` は リストの `i`番目の項目を指す lens です。 `forM` の結果を `translate` を使ってアレンジすればよいです。
 
-Another interesting feature, `transit`, is convenient to create animations.
+他に面白いのが `transit` でアニメーションを作るのに便利です。
 
 ```haskell
 pop :: Bitmap -> Object (Request Time Picture) Maybe
@@ -322,14 +322,14 @@ pop bmp = Control.Object.transit 0.5 $ \t -> translate (V2 320 360)
   $ bitmap bmp
 ```
 
-The argument `t` varies from 0 to 1, for 0.5 seconds. To instantiate, put this object into a list:
+引数 `t` は0.5秒間隔で0から1の間の数字です。初期化するにはこのオブジェクトをリストに追加してください：
 
 ```haskell
 effects <- new $ variable []
 effects .- modify (pop _perfect_png:)
 ```
 
-And `effects .- announceMaybe (request dt)` returns `[Picture]`, removing expired animations automatically. It benefits from `objective` much. Here is the complete `linkPicture` section.
+`effects .- announceMaybe (request dt)` は使われなくなったアニメーションを破棄しながら `[Picture]` を返します。 `objective` のおかげで色々得しています。以下が `linkPicture` の部分です：
 
 ```haskell
 linkPicture $ \_ -> do
@@ -343,7 +343,7 @@ linkPicture $ \_ -> do
     <> mconcat ps
 ```
 
-There is no difficulty around input.
+入力周りは難しいところはありません。
 
 ```haskell
 let touchLane i = do
@@ -359,9 +359,9 @@ linkKeyboard $ \ev -> case ev of
   _ -> return () -- Discard the other events
 ```
 
-Moreover, with `LambdaCase` GHC extension, you can replace `\ev -> case ev of` with `\case`.
+GHC拡張の `LambdaCase` のおかげで `\ev -> case ev of` を `\case` と置き換えることができます。
 
-The overall game goes in only 120 lines!
+ゲーム全体でたったの120行です！
 
 ```shell
 $ wc -l src\tutorial-extended.hs
