@@ -141,13 +141,13 @@ parseTimings :: String -> [Set Time]
 タイミングと丸の"寿命"があれば現在の時刻から丸の位置を計算できます。
 
 ```haskell
-phases :: Set Time -- ^ timings
-    -> Time -- ^ life span
-    -> Time -- ^ the current time
-    -> [Float] -- ^ phase
-phases s len t = map ((/len) . subtract t) -- transform to an interval [0, 1]
+phases :: Set Time -- ^ タイミング
+    -> Time -- ^ 寿命
+    -> Time -- ^ 現在時刻
+    -> [Float] -- ^ フェーズ
+phases s len t = map ((/len) . subtract t) -- [0, 1]の範囲に変換
   $ Set.toList
-  $ fst $ Set.split (t + len) s -- before the limit
+  $ fst $ Set.split (t + len) s -- リミットより前
 ```
 
 丸を描画する関数を作る。`Picture` はモノイドなので `foldMap` か `mconcat` を使って画像を組み合わせることができます。`translate (V2 x y)` を使って画像を (x, y) の座標へシフトさせます。`bitmap b` を使って `Bitmap` を `Picture` に変換します。
@@ -167,7 +167,7 @@ circles = foldMap (\p -> V2 320 ((1 - p) * 480) `translate` bitmap circle_png)
 ```haskell
 renderLane :: Set Time -> Time -> Picture
 renderLane ts t = mconcat [color blue $ circles (phases ts 1 t)
-    , V2 320 480 `translate` color black (bitmap circle_png) -- criterion
+    , V2 320 480 `translate` color black (bitmap circle_png) -- 基準
     ]
 ```
 
@@ -256,7 +256,7 @@ rate dt
 
 handle :: Time -> Set Time -> (Int, Set Time)
 handle t ts = case viewNearest t ts of
-  Nothing -> (0, ts) -- The song is over
+  Nothing -> (0, ts) -- 曲は終了
   Just (t', ts') -> (rate $ abs (t - t'), ts')
 ```
 
@@ -276,7 +276,7 @@ linkKeyboard $ \ev -> case ev of
     (sc, ts') <- handle t ts
     timings .- put ts'
     score .- modify (+sc)
-  _ -> return () -- Discard the other events
+  _ -> return () -- 他のイベントは無視する
 ```
 
 いくつかの変数が初期化されています。
@@ -356,7 +356,7 @@ linkKeyboard $ \ev -> case ev of
   Down KeySpace -> touchLane 1
   Down KeyF -> touchLane 0
   Down KeyJ -> touchLane 2
-  _ -> return () -- Discard the other events
+  _ -> return () -- 他のイベントは無視する
 ```
 
 GHC拡張の `LambdaCase` のおかげで `\ev -> case ev of` を `\case` と置き換えることができます。
@@ -389,9 +389,9 @@ In de-CPSed form,
 ```haskell
 data Scene = Empty
   | Combine Scene Scene
-  | Primitive Bitmap PrimitiveMode (Vector Vertex) -- draw a primitive
-  | VFX (VFX Scene) -- apply visual effects
-  | Transform (M44 Float) Scene -- transform `Scene` using a matrix
+  | Primitive Bitmap PrimitiveMode (Vector Vertex) -- プリミティブを描画する
+  | VFX (VFX Scene) -- 視覚エフェクトを適用する
+  | Transform (M44 Float) Scene -- 行列を使って `Scene` を変換する
 ```
 
 Its Monoid instance is trivial.
