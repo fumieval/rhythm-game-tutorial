@@ -1,0 +1,254 @@
+<h1 id="haskellで作る音ゲー翻訳-stefafafan">Haskellで作る音ゲー(翻訳: <span class="citation">@stefafafan</span>)</h1>
+<p>Fumiaki Kinoshita (IIJ-II) fumiexcel@gmail.com</p>
+<h2 id="イントロダクション">イントロダクション</h2>
+<p>リズムゲームは日本で人気なゲームジャンルの1つです。<strong>1998年にDance Dance Revolution (DDR)</strong> がコナミから発表されてジャンルの中で最も成功している。他に__太鼓の達人__も幅広い年代の人に愛されています。今日も次々と色んな種類のリズムゲームが発表されています。</p>
+<p>しかし、この類のゲームのチュートリアルは少なく、あったとしても古すぎたりWindowsでしか動作しなかったりします。</p>
+<p>このチュートリアルは苦痛無くリズムゲームを作れるようにと書きました。驚く無かれ、Haskellを使えばできます。</p>
+<p>このチュートリアルは3つのパートに分かれています： * パートIはパートIIとIIIで必要となってくる環境構築について。 * パートIIではシンプルなリズムゲームを作ります。Callエンジンを利用します。 * パートIIIはパートIIを支える技術的な背景（グラフィック、オーディオ等）を紹介します。</p>
+<p>このチュートリアルによりゲームを作りたいという意欲が出たら嬉しいです。</p>
+<h2 id="パート-i-準備">パート I： 準備</h2>
+<p>まずはGHCをインストールしなければなりません。<a href="https://www.haskell.org/platform/">Haskell Platform</a> でインストールするのが楽です。</p>
+<p>UnixかMacでは <code>libportaudio19</code> をインストールしてください。</p>
+<p><strong>注意：現時点で Call はMac OS Xにてビットマップをちゃんと描画してくれません。原因を分かる人が居れば教えて下さい。</strong></p>
+<pre><code>$ sudo &lt;your-package-manager&gt; install libportaudio19</code></pre>
+<p>このチュートリアルで使われるソースコードは <code>rhythm-game-tutorial</code> パッケージにあります。以下のコマンドでダウンロードとセットアップが出来ます：</p>
+<pre><code>$ cabal unpack rhythm-game-tutorial
+$ cd rhythm-game-tutorial-&lt;version&gt;
+$ cabal install --only-dependencies
+% cabal configure
+$ cabal build</code></pre>
+<p><code>cabal install --only-dependencies</code> で様々なパッケージがインストールされます。中でも <code>objective</code> と <code>call</code> は重要なパッケージです。</p>
+<ul>
+<li><code>objective</code> はステートフルなオブジェクトの抽象化をしてくれます。必要ではないが状態を扱うときの苦痛を和らいでくれます。</li>
+<li><code>call</code> はクロスプラットフォームなマルチメディアライブラリです。軽量でシンプルでありながら、ゲームで使う様々な媒体（2D/3Dグラフィックス、オーディオ、キーボード・マウス・ゲームパッドからの入力等）に対応しています。</li>
+<li><code>binding-portaudio</code> は低水準なオーディオのAPIです。</li>
+</ul>
+<h3 id="windowsにて">Windowsにて</h3>
+<p><code>bindings-portaudio</code> はインストールを楽にするため、ビルトインのソースを含んでいます。残念ながらGHCのバグにより時折不安定です。Windows x64の場合32ビット版を使ったほうが安定しているのでこういった問題は回避できます。</p>
+<pre class="shell"><code>$ cabal install bindings-portaudio -fBundle -fWASAPI</code></pre>
+<p>よくわからないエラーを投げてきた場合は私に報告してください。</p>
+<h2 id="パート-ii-ゲームを作る">パート II: ゲームを作る</h2>
+<blockquote>
+<p>さあ始まるドン！ -- 和田どん、 「太鼓の達人」</p>
+</blockquote>
+<p>シンプルなゲームを思い浮かべてください：画面下に丸があって、他の丸が上から迫ってきます。ちょうど重なったタイミングでスペースキーを押すゲームです。</p>
+<div class="figure">
+<img src="images/tutorial-passive-screenshot.png" alt="tutorial-passive" />
+<p class="caption">tutorial-passive</p>
+</div>
+<p>どのようにして実装すればいいでしょうか？プログラムの構造は以下の要素から成り立ちます：</p>
+<ul>
+<li><strong>音楽</strong>: ゲーム中に音楽が流れています。</li>
+<li><strong>グラフィックス</strong>: 時間によってグラフィックスが変わります。</li>
+<li><strong>インタラクション</strong>: プレイヤーがスペースキーを押した時にスコアが更新されます。</li>
+</ul>
+<p>順に説明していきます。</p>
+<h3 id="音楽を再生する">音楽を再生する</h3>
+<p>グルーヴは大事です。音楽を再生しましょう。最初のゲームです(<code>src/music-only.hs</code>)：</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> runSystemDefault <span class="fu">$</span> <span class="kw">do</span>
+  music <span class="ot">&lt;-</span> prepareMusic <span class="st">&quot;assets/Monoidal Purity.wav&quot;</span>
+  playMusic music
+  stand</code></pre>
+<p>実行しましょう：</p>
+<pre class="shell"><code>$ dist/build/music-only/music-only</code></pre>
+<p>音楽が聴こえますか？音楽をロードするのに少々時間かかります。</p>
+<p>コードを見てみましょう。以下の関数が Call エンジンによる定義されています。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">runSystemDefault ::</span> (forall s<span class="fu">.</span> <span class="dt">System</span> s a) <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+<span class="ot">stand ::</span> <span class="dt">System</span> s ()</code></pre>
+<p>Call では<code>System s</code> モナドにアクションが実行されます。<code>runSystemDefault</code> が <code>System s</code> を <code>IO</code> へと変換します。<code>stand</code> は何もしませんがプログラムの終了を止めます。</p>
+<p><code>prepareMusic</code> と <code>playMusic</code> のシグネチャは以下の通りです：</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Music</span> s <span class="fu">=</span> <span class="dt">Inst</span> (<span class="dt">System</span> s) (<span class="dt">StateT</span> <span class="dt">Deck</span> (<span class="dt">System</span> s)) (<span class="dt">System</span> s)
+
+<span class="ot">prepareMusic ::</span> FilePath <span class="ot">-&gt;</span> <span class="dt">System</span> s <span class="dt">Music</span>
+<span class="ot">playMusic ::</span> <span class="dt">Music</span> <span class="ot">-&gt;</span> <span class="dt">System</span> s ()</code></pre>
+<p>これらの関数は後ほど定義します。</p>
+<h3 id="画像の描画">画像の描画</h3>
+<p>ゲームのグラフィカルな部分を作っていきましょう。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> runSystemDefault <span class="fu">$</span> <span class="kw">do</span>
+  allTimings <span class="ot">&lt;-</span> liftIO <span class="fu">$</span> (<span class="fu">!!</span><span class="dv">0</span>) <span class="fu">&lt;$&gt;</span> parseTimings (<span class="dv">60</span><span class="fu">/</span><span class="dv">140</span><span class="fu">*</span><span class="dv">4</span>) <span class="fu">&lt;$&gt;</span> readFile <span class="st">&quot;assets/Monoidal-Purity.txt&quot;</span>
+  linkPicture <span class="fu">$</span> \_ <span class="ot">-&gt;</span> renderLane allTimings <span class="fu">&lt;$&gt;</span> getTime
+  stand</code></pre>
+<p><code>linkPicture :: (Time -&gt; System s Picture) -&gt; System ()</code> がCallで定義されている唯一の何かを描画するための関数です。<code>linkPicture f</code> が繰り返し <code>f</code> を呼びその結果をウィンドウに描画します。<code>f</code> の引数はフレーム間の時間ですが普通は考えなくてよいです。</p>
+<p>ゲームシステムの仕様のため、タイミング等を設定しないといけません。ここでただの数字の羅列よりも読みやすいタイミングの表記法を紹介します。</p>
+<p>この表記法はいくつかのパケットによって成り立っていて、複数の小節を表しています。一つのパケットごとに複数の列を含んでいます。小節は列の長さにより分割されます。'.' は音符、'-' は休符です。</p>
+<pre><code>----.-----------
+.-----------.---
+--------.-------</code></pre>
+<p>パーサーの実装は単純です。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">parseTimings ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> [<span class="dt">Set</span> <span class="dt">Time</span>]</code></pre>
+<p>タイミングと丸の&quot;寿命&quot;があれば現在の時刻から丸の位置を計算できます。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">phases ::</span> <span class="dt">Set</span> <span class="dt">Time</span> <span class="co">-- ^ タイミング</span>
+    <span class="ot">-&gt;</span> <span class="dt">Time</span> <span class="co">-- ^ 寿命</span>
+    <span class="ot">-&gt;</span> <span class="dt">Time</span> <span class="co">-- ^ 現在時刻</span>
+    <span class="ot">-&gt;</span> [<span class="dt">Float</span>] <span class="co">-- ^ フェーズ</span>
+phases s len t <span class="fu">=</span> map ((<span class="fu">/</span>len) <span class="fu">.</span> subtract t) <span class="co">-- [0, 1]の範囲に変換</span>
+  <span class="fu">$</span> Set.toList
+  <span class="fu">$</span> fst <span class="fu">$</span> Set.split (t <span class="fu">+</span> len) s <span class="co">-- リミットより前</span></code></pre>
+<p>丸を描画する関数を作る。<code>Picture</code> はモノイドなので <code>foldMap</code> か <code>mconcat</code> を使って画像を組み合わせることができます。<code>translate (V2 x y)</code> を使って画像を (x, y) の座標へシフトさせます。<code>bitmap b</code> を使って <code>Bitmap</code> を <code>Picture</code> に変換します。</p>
+<p><code>unsafePerformIO</code> の型は <code>IO a -&gt; a</code> であって見た感じとても見慣れない感じでしょう。<code>unsafePerformIO</code> の使用は <code>getArgs</code> や <code>readBitmap</code> のような__コンスタント__な操作にのみ限定されるべきです。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">circle_png ::</span> <span class="dt">Bitmap</span>
+circle_png <span class="fu">=</span> unsafePerformIO <span class="fu">$</span> readBitmap <span class="st">&quot;assets/circle.png&quot;</span>
+
+<span class="ot">circles ::</span> [<span class="dt">Float</span>] <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+circles <span class="fu">=</span> foldMap (\p <span class="ot">-&gt;</span> <span class="dt">V2</span> <span class="dv">320</span> ((<span class="dv">1</span> <span class="fu">-</span> p) <span class="fu">*</span> <span class="dv">480</span>) <span class="ot">`translate`</span> bitmap circle_png)</code></pre>
+<p><code>renderLane</code> は <code>phases</code> の結果を <code>circles</code> に渡します。 <code>color</code> で画像の色を指定します。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">renderLane ::</span> <span class="dt">Set</span> <span class="dt">Time</span> <span class="ot">-&gt;</span> <span class="dt">Time</span> <span class="ot">-&gt;</span> <span class="dt">Picture</span>
+renderLane ts t <span class="fu">=</span> mconcat [color blue <span class="fu">$</span> circles (phases ts <span class="dv">1</span> t)
+    , <span class="dt">V2</span> <span class="dv">320</span> <span class="dv">480</span> <span class="ot">`translate`</span> color black (bitmap circle_png) <span class="co">-- 基準</span>
+    ]</code></pre>
+<p>現時点での <code>main</code> はこんな感じです。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">main <span class="fu">=</span> runSystemDefault <span class="fu">$</span> <span class="kw">do</span>
+  music <span class="ot">&lt;-</span> prepareMusic <span class="st">&quot;assets/Monoidal-Purity.wav&quot;</span>
+  allTimings <span class="ot">&lt;-</span> fmap (<span class="fu">!!</span><span class="dv">0</span>) <span class="fu">$</span> liftIO <span class="fu">$</span> loadTimings <span class="st">&quot;assets/Monoidal-Purity.txt&quot;</span>
+  linkPicture <span class="fu">$</span> \_ <span class="ot">-&gt;</span> renderLane allTimings <span class="fu">&lt;$&gt;</span> getTime
+  playMusic music
+  stand</code></pre>
+<p>このプログラムにはまだ重要な問題点があります。なんらかの問題でプログラムがつまずくと画像と音楽が__ズレる__可能性があります。実際の時間ではなく音楽の時間を元にタイミングをとらないといけません。</p>
+<h3 id="コンポーネント-preparemusic">コンポーネント: prepareMusic</h3>
+<p>リズムゲームにおいて音楽は欠かせません。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">Music</span> s <span class="fu">=</span> <span class="dt">InstOf</span> (<span class="dt">System</span> s) (<span class="dt">Variable</span> <span class="dt">Deck</span>)
+
+<span class="ot">prepareMusic ::</span> FilePath <span class="ot">-&gt;</span> <span class="dt">System</span> s <span class="dt">Music</span>
+prepareMusic path <span class="fu">=</span> <span class="kw">do</span>
+  wav <span class="ot">&lt;-</span> readWAVE path
+  i <span class="ot">&lt;-</span> new <span class="fu">$</span> variable <span class="fu">$</span> source <span class="fu">.~</span> sampleSource wav <span class="fu">$</span> Deck.empty
+  linkAudio <span class="fu">$</span> playbackOf i
+  return i</code></pre>
+<p><code>readWAVE</code> は <code>.wav</code> ファイルから音楽をロードします。 <code>source .~ sampleSource wav $ Deck.empty</code> の部分が少々トリッキーです。</p>
+<p>Deck は音楽を再生するためのユーティリティです。 <code>source</code> は <code>Lens</code> で純粋で関数型なアクセサの表現です。 <code>new $ variable $ v</code> が音楽を初期化します。 <code>linkAudio $ playbackOf i</code> は今はおまじないとでも思っててください。</p>
+<h3 id="コンポーネント-getposition-と-playmusic">コンポーネント: getPosition と playMusic</h3>
+<p><code>getPosition</code> と <code>playMusic</code> の実装は以下の通りです：</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getPosition ::</span> <span class="dt">Music</span> s <span class="ot">-&gt;</span> <span class="dt">System</span> s <span class="dt">Time</span>
+getPosition m <span class="fu">=</span> m <span class="fu">.-</span> use pos
+
+<span class="ot">playMusic ::</span> <span class="dt">Music</span> s <span class="ot">-&gt;</span> <span class="dt">System</span> s ()
+playMusic m <span class="fu">=</span> m <span class="fu">.-</span> playing <span class="fu">.=</span> <span class="dt">True</span></code></pre>
+<p>ここで新しく2つの演算子が登場します： <code>use</code> と <code>.=</code> です。これらは <code>lens</code> ライブラリからです。このパッケージは様々のアクセサを扱うための型やユーティリティを含んでいます。</p>
+<p><code>pos</code> と <code>playing</code> は <code>Lens</code> です。 <code>Lens' s a</code> では <code>a</code> の値の取得の操作を <code>s</code> から出来ます。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pos ::</span> <span class="dt">Lens&#39;</span> <span class="dt">Deck</span> <span class="dt">Time</span>
+<span class="ot">playing ::</span> <span class="dt">Lens&#39;</span> <span class="dt">Deck</span> <span class="dt">Bool</span></code></pre>
+<p><code>use</code> と <code>(.=)</code> はステートフルモナドに対して使える値を取得・設定するための演算子です。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">use ::</span> <span class="dt">MonadState</span> s m <span class="ot">=&gt;</span> <span class="dt">Lens&#39;</span> s a <span class="ot">-&gt;</span> m a
+<span class="ot">(.=) ::</span> <span class="dt">MonadState</span> s m <span class="ot">=&gt;</span> <span class="dt">Lens&#39;</span> s a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> m ()</code></pre>
+<p>lens を利用すればオブジェクトの一部へのアクセスを容易にできて、オブジェクト指向言語でいうメンバー変数のようなものを操作が出来ます。ですが deck のステートは <code>gameMain</code> の <code>music</code> にパックされているので直接は操作できません。 <code>objective</code> パッケージの <code>(.-)</code> 演算子は特定の操作を実行できます。</p>
+<p><code>getPosition m</code> は音楽 <code>m</code> からの経過時間を秒数で正確に返します。</p>
+<p>ここまでのソースをまとめたのがこれです <code>src/tutorial-passive.hs</code> 。</p>
+<pre class="shell"><code>$ dist/build/tutorial-passive/tutorial-passive</code></pre>
+<p>ですがまだゲームではありません。スコアもインタラクションもないです。</p>
+<h3 id="入力処理">入力処理</h3>
+<p>入力の処理をしていきましょう。ここで新たに2つのコンポーネントを紹介します、 <code>rate</code> と <code>handle</code> です。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">rate ::</span> <span class="dt">Time</span> <span class="ot">-&gt;</span> <span class="dt">Int</span>
+rate dt
+  <span class="fu">|</span> dt <span class="fu">&lt;</span> <span class="fl">0.05</span> <span class="fu">=</span> <span class="dv">4</span>
+  <span class="fu">|</span> dt <span class="fu">&lt;</span> <span class="fl">0.1</span> <span class="fu">=</span> <span class="dv">2</span>
+  <span class="fu">|</span> otherwise <span class="fu">=</span> <span class="dv">1</span>
+
+<span class="ot">handle ::</span> <span class="dt">Time</span> <span class="ot">-&gt;</span> <span class="dt">Set</span> <span class="dt">Time</span> <span class="ot">-&gt;</span> (<span class="dt">Int</span>, <span class="dt">Set</span> <span class="dt">Time</span>)
+handle t ts <span class="fu">=</span> <span class="kw">case</span> viewNearest t ts <span class="kw">of</span>
+  <span class="dt">Nothing</span> <span class="ot">-&gt;</span> (<span class="dv">0</span>, ts) <span class="co">-- 曲は終了</span>
+  <span class="dt">Just</span> (t&#39;, ts&#39;) <span class="ot">-&gt;</span> (rate <span class="fu">$</span> abs (t <span class="fu">-</span> t&#39;), ts&#39;)</code></pre>
+<p><code>rate</code> はタイムラグを元にスコアを計算します。 <code>handle</code> はスコアと更新されたタイミングを返します。 <code>viewNearest :: (Num a, Ord a) =&gt; a -&gt; Set a -&gt; (a, Set a)</code> はセットから最も近い値を返す関数です。もし一番近い値を返すのに失敗したらでたらめにボタンを押すことで予期せぬスコアの増加を許してしまいます。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Chatter</span> a <span class="fu">=</span> <span class="dt">Up</span> a <span class="fu">|</span> <span class="dt">Down</span> a</code></pre>
+<p>以下のコードがイベントの処理をします。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">linkKeyboard <span class="fu">$</span> \ev <span class="ot">-&gt;</span> <span class="kw">case</span> ev <span class="kw">of</span>
+  <span class="dt">Down</span> <span class="dt">KeySpace</span> <span class="ot">-&gt;</span> <span class="kw">do</span>
+    t <span class="ot">&lt;-</span> getPosition
+    ts <span class="ot">&lt;-</span> timings <span class="fu">.-</span> get
+    (sc, ts&#39;) <span class="ot">&lt;-</span> handle t ts
+    timings <span class="fu">.-</span> put ts&#39;
+    score <span class="fu">.-</span> modify (<span class="fu">+</span>sc)
+  _ <span class="ot">-&gt;</span> return () <span class="co">-- 他のイベントは無視する</span></code></pre>
+<p>いくつかの変数が初期化されています。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">timings <span class="ot">&lt;-</span> new <span class="fu">$</span> variable (allTimings <span class="fu">!!</span> <span class="dv">0</span>)
+score <span class="ot">&lt;-</span> new <span class="fu">$</span> variable <span class="dv">0</span></code></pre>
+<p><code>linkKeyboard</code> が呼ばれる時、エンジンはキーボードのイベントを <code>Key</code> へ送ります。 <code>Key</code> はキーが押されてるか離されたかを識別するため <code>Chatter</code> によりラップされています。スペースキーが押された時、タイムラグを一番近いタイミングから計算し、正確度によってスコアを増加させます。</p>
+<p>プレイヤーに現在のスコアを表示するために <em>フォント</em> もロードしないといけません。 <code>Call.Util.Text.simple</code> は与えられたテキストを描画する関数を返してくれます。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">text <span class="ot">&lt;-</span> Text.simple defaultFont <span class="dv">24</span> <span class="co">-- text :: String -&gt; Picture</span></code></pre>
+<p><code>renderGame</code> に <code>text (show sc)</code> を追加するだけです。現時点のインタラクションを追加したソースはこちらです <code>src/tutorial-active.hs</code> 。ゲームですね！わーい！</p>
+<pre class="shell"><code>$ dist/build/tutorial-passive/tutorial-active</code></pre>
+<div class="figure">
+<img src="images/tutorial-active-screenshot.png" alt="tutorial-active" />
+<p class="caption">tutorial-active</p>
+</div>
+<h3 id="ゲームを拡張する">ゲームを拡張する</h3>
+<p>実際に遊んでみるとガッカリしちゃうでしょう。インタラクションがまだあまりよくないからです。もっとかっこいいエフェクトとかあれば楽しくなります。最近のリズムゲームは判定をすぐさま表示します。そうすればプレイヤーは自分がちゃんとプレイが上手いかどうかすぐわかります。</p>
+<p>純粋関数型なデザインのおかげさまでレーンを簡単に拡張できます（ <code>tutorial-extended.hs</code> ）！</p>
+<div class="figure">
+<img src="images/extended.png" alt="extended" />
+<p class="caption">extended</p>
+</div>
+<p><code>ix i</code> は リストの <code>i</code>番目の項目を指す lens です。 <code>forM</code> の結果を <code>translate</code> を使って配置すればよいです。</p>
+<p>他に面白いのが <code>transit</code> でアニメーションを作るのに便利です。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">pop ::</span> <span class="dt">Bitmap</span> <span class="ot">-&gt;</span> <span class="dt">Object</span> (<span class="dt">Request</span> <span class="dt">Time</span> <span class="dt">Picture</span>) <span class="dt">Maybe</span>
+pop bmp <span class="fu">=</span> Control.Object.transit <span class="fl">0.5</span> <span class="fu">$</span> \t <span class="ot">-&gt;</span> translate (<span class="dt">V2</span> <span class="dv">320</span> <span class="dv">360</span>)
+  <span class="fu">$</span> translate (<span class="dt">V2</span> <span class="dv">0</span> (<span class="fu">-</span><span class="dv">80</span>) <span class="fu">^*</span> t)
+  <span class="fu">$</span> color (<span class="dt">V4</span> <span class="dv">1</span> <span class="dv">1</span> <span class="dv">1</span> (realToFrac <span class="fu">$</span> <span class="dv">1</span> <span class="fu">-</span> t))
+  <span class="fu">$</span> bitmap bmp</code></pre>
+<p>引数 <code>t</code> は0.5秒間隔で0から1の間まで変化します。初期化するにはこのオブジェクトをリストに追加してください：</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">effects <span class="ot">&lt;-</span> new <span class="fu">$</span> variable []
+effects <span class="fu">.-</span> modify (pop _perfect_png<span class="fu">:</span>)</code></pre>
+<p><code>effects .- announceMaybe (request dt)</code> は使われなくなったアニメーションを破棄しながら <code>[Picture]</code> を返します。 <code>objective</code> のおかげで色々得しています。以下が <code>linkPicture</code> の部分です：</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">linkPicture <span class="fu">$</span> \_ <span class="ot">-&gt;</span> <span class="kw">do</span>
+  [l0, l1, l2] <span class="ot">&lt;-</span> forM [<span class="dv">0</span><span class="fu">..</span><span class="dv">2</span>] <span class="fu">$</span> \i <span class="ot">-&gt;</span> renderLane <span class="fu">&lt;$&gt;</span> (timings <span class="fu">.-</span> use (ix i)) <span class="fu">&lt;*&gt;</span> getPosition music
+  s <span class="ot">&lt;-</span> score <span class="fu">.-</span> get
+  ps <span class="ot">&lt;-</span> effects <span class="fu">.-</span> announceMaybe (request dt)
+  return <span class="fu">$</span> translate (<span class="dt">V2</span> (<span class="fu">-</span><span class="dv">120</span>) <span class="dv">0</span>) l0
+    <span class="fu">&lt;&gt;</span> translate (<span class="dt">V2</span> <span class="dv">0</span> <span class="dv">0</span>) l1
+    <span class="fu">&lt;&gt;</span> translate (<span class="dt">V2</span> <span class="dv">120</span> <span class="dv">0</span>) l2
+    <span class="fu">&lt;&gt;</span> color black (translate (<span class="dt">V2</span> <span class="dv">240</span> <span class="dv">40</span>) (text (show s)))
+    <span class="fu">&lt;&gt;</span> mconcat ps</code></pre>
+<p>入力周りは難しいところはありません。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> touchLane i <span class="fu">=</span> <span class="kw">do</span>
+      ((sc, obj), ts&#39;) <span class="ot">&lt;-</span> handle <span class="fu">&lt;$&gt;</span> getPosition music <span class="fu">&lt;*&gt;</span> (timings <span class="fu">.-</span> use (ix i))
+      effects <span class="fu">.-</span> modify (obj<span class="fu">:</span>)
+      timings <span class="fu">.-</span> ix i <span class="fu">.=</span> ts&#39;
+      score <span class="fu">.-</span> modify (<span class="fu">+</span>sc)
+
+linkKeyboard <span class="fu">$</span> \ev <span class="ot">-&gt;</span> <span class="kw">case</span> ev <span class="kw">of</span>
+  <span class="dt">Down</span> <span class="dt">KeySpace</span> <span class="ot">-&gt;</span> touchLane <span class="dv">1</span>
+  <span class="dt">Down</span> <span class="dt">KeyF</span> <span class="ot">-&gt;</span> touchLane <span class="dv">0</span>
+  <span class="dt">Down</span> <span class="dt">KeyJ</span> <span class="ot">-&gt;</span> touchLane <span class="dv">2</span>
+  _ <span class="ot">-&gt;</span> return () <span class="co">-- 他のイベントは無視する</span></code></pre>
+<p>GHC拡張の <code>LambdaCase</code> のおかげで <code>\ev -&gt; case ev of</code> を <code>\case</code> と置き換えることができます。</p>
+<p>ゲーム全体でたったの120行です！</p>
+<pre class="shell"><code>$ wc -l src\tutorial-extended.hs
+120
+$ dist/build/tutorial-passive/tutorial-extended</code></pre>
+<h2 id="パート-iii-技術的背景">パート III: 技術的背景</h2>
+<h3 id="グラフィックス">グラフィックス</h3>
+<p>合成可能な物で &quot;empty&quot; を含む物のことをモノイドと呼びます。<strong>空の画像</strong> やオーバーレイすることにより <strong>画像の合成</strong> が可能なので画像もモノイドです。標準ライブラリの <code>base</code> はモノイドの型クラスを定義しています：</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Monoid</span> a <span class="kw">where</span>
+<span class="ot">  mempty ::</span> a
+<span class="ot">  mappend ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</code></pre>
+<p>Call は <strong>フリーモノイド</strong> を利用して画像を表現しています。</p>
+<p>CPS(継続渡しスタイル)ではなく表現すると、</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Scene</span> <span class="fu">=</span> <span class="dt">Empty</span>
+  <span class="fu">|</span> <span class="dt">Combine</span> <span class="dt">Scene</span> <span class="dt">Scene</span>
+  <span class="fu">|</span> <span class="dt">Primitive</span> <span class="dt">Bitmap</span> <span class="dt">PrimitiveMode</span> (<span class="dt">Vector</span> <span class="dt">Vertex</span>) <span class="co">-- プリミティブを描画する</span>
+  <span class="fu">|</span> <span class="dt">VFX</span> (<span class="dt">VFX</span> <span class="dt">Scene</span>) <span class="co">-- 視覚エフェクトを適用する</span>
+  <span class="fu">|</span> <span class="dt">Transform</span> (<span class="dt">M44</span> <span class="dt">Float</span>) <span class="dt">Scene</span> <span class="co">-- 行列を使って `Scene` を変換する</span></code></pre>
+<p>モノイドインスタンスは単純です。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">Monoid</span> <span class="dt">Scene</span> <span class="kw">where</span>
+  mempty <span class="fu">=</span> <span class="dt">Empty</span>
+  mappend <span class="fu">=</span> <span class="dt">Combine</span></code></pre>
+<p>フリーモノイドを利用すると描画の部分を <code>Scene</code> と切り分けることができます。 <code>drawScene :: Scene -&gt; IO ()</code> はAPIを利用してSceneを描画します。空の画像の場合何もしません。 <code>Combine a b</code> は <code>drawScene a &gt;&gt; drawScene b</code> を呼ぶのと同義です。</p>
+<p><code>drawScene</code> の実装は以下のようになります：</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">drawScene <span class="dt">Empty</span> <span class="fu">=</span> return ()
+drawScene (<span class="dt">Combine</span> a b) <span class="fu">=</span> drawScene a <span class="fu">&gt;&gt;</span> drawScene b
+drawScene (<span class="dt">Primitive</span> b m vs) <span class="fu">=</span> drawPrimitive b m vs
+drawScene (<span class="dt">VFX</span> v) <span class="fu">=</span> drawScene (applyVFX v)
+drawScene (<span class="dt">Transform</span> mat s) <span class="fu">=</span> withMatrix mat (drawScene s)</code></pre>
+<p><code>drawPrimitive</code>、 <code>applyVFX</code>、 <code>withMatrix</code> は環境依存です。</p>
+<p>free structure はドメイン固有言語の一種でプログラムの再利用を促進します。Andres Löh氏の <a href="https://skillsmatter.com/skillscasts/4430-monads-for-free">Monads for free!</a> は free structure について勉強したいならオススメです。</p>
+<p>Call は様々な変換を <code>Affine</code> クラスに定義しています。型族のおかげさまで同じ変換を2Dと3Dで利用できます。 <code>Normal</code> は法線ベクトルで3Dでは三次元ベクトルですが2Dではただの <code>Float</code> です。</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Affine</span> a <span class="kw">where</span>
+  <span class="kw">type</span> <span class="dt">Vec</span><span class="ot"> a ::</span> <span class="fu">*</span>
+  <span class="kw">type</span> <span class="dt">Normal</span><span class="ot"> a ::</span> <span class="fu">*</span>
+<span class="ot">  rotateOn ::</span> <span class="dt">Normal</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+<span class="ot">  scale ::</span> <span class="dt">Vec</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+<span class="ot">  translate ::</span> <span class="dt">Vec</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a</code></pre>
+<h3 id="オーディオ">オーディオ</h3>
+<p>現在、多くの環境で簡単にインストールできるようなオーディオのパッケージは少ないです。その中で私は様々なバックエンドをサポートする <code>portaudio</code> を選択しました。</p>
+<p>人間は音に敏感でほんの20ミリ秒の誤差でも気づきます。故に、音ズレは特に最小限に抑えたいです。これが Call がコールバックを利用する最大の理由です。Callは軽量で丈夫なライブラリを目指していて、抽象化は <code>objective</code> に任せています。</p>
+<h2 id="謝辞">謝辞</h2>
+<p>山本和彦さんにこのチュートリアルの設計を手伝っていただきました。</p>
