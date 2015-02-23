@@ -22,7 +22,7 @@ gameMain = do
 
 main = runSystemDefault (gameMain >> stand)
 
-type Music s = Inst' (StateT Deck (System s)) (System s)
+type Music s = Instance (StateT Deck (System s)) (System s)
 
 prepareMusic :: FilePath -> System s (Music s)
 prepareMusic path = do

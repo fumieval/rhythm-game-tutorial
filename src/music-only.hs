@@ -8,7 +8,7 @@ main = runSystemDefault $ do
   playMusic music
   stand
 
-type Music s = Inst (System s) (StateT Deck (System s)) (System s)
+type Music s = Instance (StateT Deck (System s)) (System s)
 
 prepareMusic :: FilePath -> System s (Music s)
 prepareMusic path = do

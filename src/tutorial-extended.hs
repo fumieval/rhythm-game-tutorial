@@ -1,5 +1,5 @@
 {-# LANGUAGE Rank2Types, ImpredicativeTypes, ViewPatterns #-}
-import Call
+import Call hiding (new')
 import Call.Util.Deck as Deck
 import Control.Lens
 import Control.Monad.State.Strict
@@ -15,6 +15,7 @@ import Control.Object
 
 gameMain :: System s ()
 gameMain = do
+  setFPS 60
   music <- prepareMusic "assets/Monoidal Purity.wav"
 
   allTimings <- liftIO $ parseScore (60/160*4) <$> readFile "assets/Monoidal Purity.txt"
@@ -28,12 +29,12 @@ gameMain = do
   linkPicture $ \dt -> do
     [l0, l1, l2] <- forM [0..2] $ \i -> renderLane <$> (timings .- use (ix i)) <*> getPosition music
     s <- score .- get
-    ps <- effects .- announceMaybe (request dt)
+    ef <- effects .- gatherFst id (apprises (request dt))
     return $ translate (V2 (-120) 0) l0
       <> translate (V2 0 0) l1
       <> translate (V2 120 0) l2
       <> color black (translate (V2 240 40) (text (show s)))
-      <> mconcat ps
+      <> ef
 
   let touchLane i = do
         ((sc, obj), ts') <- handle <$> getPosition music <*> (timings .- use (ix i))
@@ -51,7 +52,7 @@ gameMain = do
 
 main = runSystemDefault (gameMain >> stand)
 
-type Music s = Inst (System s) (StateT Deck (System s)) (System s)
+type Music s = Instance (StateT Deck (System s)) (System s)
 
 prepareMusic :: FilePath -> System s (Music s)
 prepareMusic path = do
@@ -93,13 +94,15 @@ parseScore :: Time -> String -> [Set Time]
 parseScore d = map (Set.fromAscList . concat . zipWith (map . (+)) [0,d..]) . Data.List.transpose . map (map f) . splitWhen (=="") . lines where
   f l = [t | (t, c) <- zip [0, d/fromIntegral (length l)..] l, c == '.']
 
-rate :: Time -> (Int, Object (Request Time Picture) Maybe)
+type Effect m = Mortal (Request Time Picture) m ()
+
+rate :: Monad m => Time -> (Int, Effect m)
 rate dt
   | dt < 0.05 = (4, pop _perfect_png)
   | dt < 0.1 = (2, pop _good_png)
   | otherwise = (1, pop _error_png)
 
-handle :: Time -> Set Time -> ((Int, Object (Request Time Picture) Maybe), Set Time)
+handle :: Monad m => Time -> Set Time -> ((Int, Effect m), Set Time)
 handle t ts = case viewNearest t ts of
   Nothing -> ((0, pop _error_png), ts) -- The song is over
   Just (t', ts') -> (rate $ abs (t - t'), ts')
@@ -113,8 +116,8 @@ viewNearest t ts = case Set.split t ts of
   (_, Set.minView -> Just (b, sb')) -> Just (b, sb')
   _ -> Nothing
 
-pop :: Bitmap -> Object (Request Time Picture) Maybe
-pop bmp = Control.Object.transit 0.5 $ \t -> return $ translate (V2 320 360)
+pop :: Monad m => Bitmap -> Effect m
+pop bmp = Mortal $ Control.Object.transit 0.5 $ \t -> return $ translate (V2 320 360)
   $ translate (V2 0 (-80) ^* t)
   $ color (V4 1 1 1 (realToFrac $ 1 - t))
   $ bitmap bmp

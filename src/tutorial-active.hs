@@ -1,5 +1,5 @@
 {-# LANGUAGE Rank2Types, ImpredicativeTypes, ViewPatterns #-}
-import Call
+import Call hiding (new')
 import Call.Util.Deck as Deck
 import Control.Lens
 import Control.Monad.State.Strict
@@ -38,7 +38,7 @@ gameMain = do
 
 main = runSystemDefault (gameMain >> stand)
 
-type Music s = Inst (System s) (StateT Deck (System s)) (System s)
+type Music s = Instance (StateT Deck (System s)) (System s)
 
 prepareMusic :: FilePath -> System s (Music s)
 prepareMusic path = do
