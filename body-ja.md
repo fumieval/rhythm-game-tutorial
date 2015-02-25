@@ -1,6 +1,6 @@
 Haskellで作る音ゲー(翻訳: @stefafafan)
 ====
-Fumiaki Kinoshita (IIJ-II) fumiexcel@gmail.com
+Fumiaki Kinoshita (IIJ-II) [@fumieval](http://twitter.com/fumieval)
 
 イントロダクション
 ----
@@ -32,6 +32,7 @@ $ sudo <your-package-manager> install libportaudio19
 このチュートリアルで使われるソースコードは `rhythm-game-tutorial` パッケージにあります。以下のコマンドでダウンロードとセットアップが出来ます：
 
 ```
+$ cabal update
 $ cabal unpack rhythm-game-tutorial
 $ cd rhythm-game-tutorial-<version>
 $ cabal install --only-dependencies
@@ -47,7 +48,7 @@ $ cabal build
 
 ### Windowsにて
 
-`bindings-portaudio` はインストールを楽にするため、ビルトインのソースを含んでいます。残念ながらGHCのバグにより時折不安定です。Windows x64の場合32ビット版を使ったほうが安定しているのでこういった問題は回避できます。
+`bindings-portaudio` はインストールを楽にするため、ビルトインのソースを含んでいます。残念ながらGHCのバグにより時折不安定です。
 
 ```shell
 $ cabal install bindings-portaudio -fBundle -fWASAPI
@@ -103,10 +104,10 @@ Call では`System s` モナドにアクションが実行されます。`runSys
 `prepareMusic` と `playMusic` のシグネチャは以下の通りです：
 
 ```haskell
-type Music s = Inst (System s) (StateT Deck (System s)) (System s)
+type Music s = Instance (StateT Deck (System s)) (System s)
 
-prepareMusic :: FilePath -> System s Music
-playMusic :: Music -> System s ()
+prepareMusic :: FilePath -> System s (Music s)
+playMusic :: Music s -> System s ()
 ```
 
 これらの関数は後ほど定義します。
@@ -117,7 +118,7 @@ playMusic :: Music -> System s ()
 
 ```haskell
 main = runSystemDefault $ do
-  allTimings <- liftIO $ (!!0) <$> parseTimings (60/140*4) <$> readFile "assets/Monoidal-Purity.txt"
+  allTimings <- liftIO $ parseScore (60/160*4) <$> readFile "assets/Monoidal Purity.txt"
   linkPicture $ \_ -> renderLane allTimings <$> getTime
   stand
 ```
@@ -132,10 +133,12 @@ main = runSystemDefault $ do
     .-----------.---
     --------.-------
 
-パーサーの実装は単純です。
+パーサーの実装はあまり見て面白いものではありません。
 
 ```haskell
-parseTimings :: String -> [Set Time]
+parseScore :: Time -> String -> [Set Time]
+parseScore d = map (Set.fromAscList . concat . zipWith (map . (+)) [0,d..]) . Data.List.transpose . map (map f) . splitWhen (=="") . lines where
+  f l = [t | (t, c) <- zip [0, d/fromIntegral (length l)..] l, c == '.']
 ```
 
 タイミングと丸の"寿命"があれば現在の時刻から丸の位置を計算できます。
@@ -189,9 +192,9 @@ main = runSystemDefault $ do
 リズムゲームにおいて音楽は欠かせません。
 
 ```haskell
-type Music s = InstOf (System s) (Variable Deck)
+type Music s = Instance (StateT Deck (System s)) (System s)
 
-prepareMusic :: FilePath -> System s Music
+prepareMusic :: FilePath -> System s (Music s)
 prepareMusic path = do
   wav <- readWAVE path
   i <- new $ variable $ source .~ sampleSource wav $ Deck.empty
@@ -315,7 +318,9 @@ $ dist/build/tutorial-passive/tutorial-active
 他に面白いのが `transit` でアニメーションを作るのに便利です。
 
 ```haskell
-pop :: Bitmap -> Object (Request Time Picture) Maybe
+type Effect m = Mortal (Request Time Picture) m ()
+
+pop :: Monad m => Bitmap -> Effect m
 pop bmp = Control.Object.transit 0.5 $ \t -> translate (V2 320 360)
   $ translate (V2 0 (-80) ^* t)
   $ color (V4 1 1 1 (realToFrac $ 1 - t))
@@ -329,18 +334,18 @@ effects <- new $ variable []
 effects .- modify (pop _perfect_png:)
 ```
 
-`effects .- announceMaybe (request dt)` は使われなくなったアニメーションを破棄しながら `[Picture]` を返します。 `objective` のおかげで色々得しています。以下が `linkPicture` の部分です：
+`effects .- gatherFst id (apprises (request dt))` は使われなくなったアニメーションを破棄しながら `Picture` を返します。 `objective` のおかげで色々得しています。以下が `linkPicture` の部分です：
 
 ```haskell
 linkPicture $ \_ -> do
   [l0, l1, l2] <- forM [0..2] $ \i -> renderLane <$> (timings .- use (ix i)) <*> getPosition music
   s <- score .- get
-  ps <- effects .- announceMaybe (request dt)
+  ps <- effects .- gatherFst id (apprises (request dt))
   return $ translate (V2 (-120) 0) l0
     <> translate (V2 0 0) l1
     <> translate (V2 120 0) l2
     <> color black (translate (V2 240 40) (text (show s)))
-    <> mconcat ps
+    <> ps
 ```
 
 入力周りは難しいところはありません。
@@ -352,7 +357,7 @@ let touchLane i = do
       timings .- ix i .= ts'
       score .- modify (+sc)
 
-linkKeyboard $ \ev -> case ev of
+linkKeyboard $ \case
   Down KeySpace -> touchLane 1
   Down KeyF -> touchLane 0
   Down KeyJ -> touchLane 2
@@ -382,7 +387,7 @@ class Monoid a where
   mappend :: a -> a -> a
 ```
 
-Call は __フリーモノイド__ を利用して画像を表現しています。
+Call は __自由モノイド__ を利用して画像を表現しています。
 
 CPS(継続渡しスタイル)ではなく表現すると、
 
@@ -402,7 +407,7 @@ instance Monoid Scene where
   mappend = Combine
 ```
 
-フリーモノイドを利用すると描画の部分を `Scene` と切り分けることができます。 `drawScene :: Scene -> IO ()` はAPIを利用してSceneを描画します。空の画像の場合何もしません。 `Combine a b` は `drawScene a >> drawScene b` を呼ぶのと同義です。
+自由モノイドを利用すると描画の部分を `Scene` と切り分けることができます。 `drawScene :: Scene -> IO ()` はAPIを利用してSceneを描画します。空の画像の場合何もしません。 `Combine a b` は `drawScene a >> drawScene b` を呼ぶのと同義です。
 
 `drawScene` の実装は以下のようになります：
 
@@ -416,7 +421,7 @@ drawScene (Transform mat s) = withMatrix mat (drawScene s)
 
 `drawPrimitive`、 `applyVFX`、 `withMatrix` は環境依存です。
 
-free structure はドメイン固有言語の一種でプログラムの再利用を促進します。Andres Löh氏の [Monads for free!](https://skillsmatter.com/skillscasts/4430-monads-for-free) は free structure について勉強したいならオススメです。
+自由な構造はドメイン固有言語の一種でプログラムの再利用を促進します。Andres Löh氏の [Monads for free!](https://skillsmatter.com/skillscasts/4430-monads-for-free)は自由な構造について勉強したいならオススメです。
 
 Call は様々な変換を `Affine` クラスに定義しています。型族のおかげさまで同じ変換を2Dと3Dで利用できます。 `Normal` は法線ベクトルで3Dでは三次元ベクトルですが2Dではただの `Float` です。
 

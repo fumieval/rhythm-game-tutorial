@@ -2,6 +2,8 @@ Creating rhythm game with Haskell
 ====
 Fumiaki Kinoshita (part-time employee of IIJ-II) fumiexcel@gmail.com
 
+[日本語版](http://fumieval.github.com/rhythm-game-tutorial/ja.html) is available. Thank you, @stefafafan!
+
 Introduction
 ----
 Rhythm games, also known as rhythm actions, are very popular genre in Japan. Konami released __Dance Dance Revolution (DDR) in 1998__ -- it is the best successful game among the genre. Another famous one, _Taiko no Tatsujin_(literally, __Expert of Japanese drum__) is being immensely supported by broad age-group of people. Today, various forms of rhythm games have been released one after another.
@@ -34,6 +36,7 @@ $ sudo <your-package-manager> install libportaudio19
 The source code used in this tutorial is packed in `rhythm-game-tutorial` package. You can download it and set it up by:
 
 ```
+$ cabal update
 $ cabal unpack rhythm-game-tutorial
 $ cd rhythm-game-tutorial-<version>
 $ cabal install --only-dependencies
@@ -105,10 +108,10 @@ In Call, actions are performed on `System s` monad. `runSystemDefault` converts 
 The signatures of `prepareMusic` and `playMusic` are as follows:
 
 ```haskell
-type Music s = Inst (System s) (StateT Deck (System s)) (System s)
+type Music s = Instance (StateT Deck (System s)) (System s)
 
-prepareMusic :: FilePath -> System s Music
-playMusic :: Music -> System s ()
+prepareMusic :: FilePath -> System s (Music s)
+playMusic :: Music s -> System s ()
 ```
 
 These functions will be defined later.
@@ -119,7 +122,7 @@ Let's construct a graphical part of the game.
 
 ```haskell
 main = runSystemDefault $ do
-  allTimings <- liftIO $ (!!0) <$> parseTimings (60/140*4) <$> readFile "assets/Monoidal-Purity.txt"
+  allTimings <- liftIO $ parseScore (60/160*4) <$> readFile "assets/Monoidal Purity.txt"
   linkPicture $ \_ -> renderLane allTimings <$> getTime
   stand
 ```
@@ -137,7 +140,9 @@ This notation is consist of a number of packets, representing a sequence of bars
 The implementation of the parser is not so interesting.
 
 ```haskell
-parseTimings :: String -> [Set Time]
+parseScore :: Time -> String -> [Set Time]
+parseScore d = map (Set.fromAscList . concat . zipWith (map . (+)) [0,d..]) . Data.List.transpose . map (map f) . splitWhen (=="") . lines where
+  f l = [t | (t, c) <- zip [0, d/fromIntegral (length l)..] l, c == '.']
 ```
 
 Given timings and "life span" of circles, we can compute positions of visible circles from the time.
@@ -191,9 +196,9 @@ There is a serious problem in this program. The graphics and music may __diverge
 A music is essential for rhythm games.
 
 ```haskell
-type Music s = InstOf (System s) (Variable Deck)
+type Music s = Instance (StateT Deck (System s)) (System s)
 
-prepareMusic :: FilePath -> System s Music
+prepareMusic :: FilePath -> System s (Music s)
 prepareMusic path = do
   wav <- readWAVE path
   i <- new $ variable $ source .~ sampleSource wav $ Deck.empty
@@ -233,7 +238,7 @@ use :: MonadState s m => Lens' s a -> m a
 (.=) :: MonadState s m => Lens' s a -> a -> m ()
 ```
 
-With lens, we can access a specific element of a structure easily, allowing you manipulate just like "fields" in OOP languages. However, the state of the deck is packed in `music` in `gameMain` so these can't be used directly. The `(.-)` operator, provided by `objective` package, executes an action within a context held by a left operand.
+With lens, we can access a specific element of a structure easily, allowing you manipulate them just like "fields" in OOP languages. However, the state of the deck is packed in `music` in `gameMain` so these can't be used directly. The `(.-)` operator, provided by `objective` package, executes an action within a context held by a left operand.
 
 `getPosition m` returns an accurate time (in seconds) elapsed from an origin of a music `m`.
 
@@ -306,7 +311,7 @@ $ dist/build/tutorial-passive/tutorial-active
 
 ### Extending the game
 
-However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of accuracy immediately. So, players can notice whether their playing is good or bad.
+However, when you actually play this, you may feel dissatisfied. It is because the interaction is still poor. If it would have more showy effects, it'll be exciting. Most rhythm games shows the recent evaluation of the accuracy immediately. So, players can notice whether their playing is good or bad.
 
 Thanks to purely functional design, we can extend lanes so easily(`tutorial-extended.hs`)!
 
@@ -317,32 +322,34 @@ Thanks to purely functional design, we can extend lanes so easily(`tutorial-exte
 Another interesting feature, `transit`, is convenient to create animations.
 
 ```haskell
-pop :: Bitmap -> Object (Request Time Picture) Maybe
-pop bmp = Control.Object.transit 0.5 $ \t -> translate (V2 320 360)
+type Effect m = Mortal (Request Time Picture) m ()
+
+pop :: Monad m => Bitmap -> Effect m
+pop bmp = Mortal $ transit 0.5 $ \t -> translate (V2 320 360)
   $ translate (V2 0 (-80) ^* t)
   $ color (V4 1 1 1 (realToFrac $ 1 - t))
   $ bitmap bmp
 ```
 
-The argument `t` varies from 0 to 1, for 0.5 seconds. To instantiate, put this object into a list:
+The argument `t` varies from 0 to 1, for 0.5 seconds. To instantiate this, put this object into a list:
 
 ```haskell
 effects <- new $ variable []
 effects .- modify (pop _perfect_png:)
 ```
 
-And `effects .- announceMaybe (request dt)` returns `[Picture]`, removing expired animations automatically. It benefits from `objective` much. Here is the complete `linkPicture` section.
+And `effects .- gatherFst id (apprises (request dt))` returns `Picture`, removing expired animations automatically. It benefits from `objective` much. Here is the complete `linkPicture` section.
 
 ```haskell
 linkPicture $ \_ -> do
   [l0, l1, l2] <- forM [0..2] $ \i -> renderLane <$> (timings .- use (ix i)) <*> getPosition music
   s <- score .- get
-  ps <- effects .- announceMaybe (request dt)
+  ps <- effects .- gatherFst id (apprises (request dt))
   return $ translate (V2 (-120) 0) l0
     <> translate (V2 0 0) l1
     <> translate (V2 120 0) l2
     <> color black (translate (V2 240 40) (text (show s)))
-    <> mconcat ps
+    <> ps
 ```
 
 There is no difficulty around input.
@@ -363,11 +370,11 @@ linkKeyboard $ \ev -> case ev of
 
 Moreover, with `LambdaCase` GHC extension, you can replace `\ev -> case ev of` with `\case`.
 
-The overall game goes in only 120 lines!
+The overall game goes in only 123 lines!
 
 ```shell
 $ wc -l src\tutorial-extended.hs
-120
+123
 $ dist/build/tutorial-passive/tutorial-extended
 ```
 
