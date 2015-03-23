@@ -1,21 +1,22 @@
+{-# LANGUAGE FlexibleContexts #-}
 import Call
-import Call.Util.Deck as Deck
+import Audiovisual.Deck as Deck
 import Control.Monad.State.Strict
 import Control.Lens
 
-main = runSystemDefault $ do
+main = runCallDefault $ do
   music <- prepareMusic "assets/Monoidal Purity.wav"
   playMusic music
   stand
 
-type Music s = Instance (StateT Deck (System s)) (System s)
+type Music = Instance (StateT (Deck Stereo) IO) IO
 
-prepareMusic :: FilePath -> System s (Music s)
+prepareMusic :: Call => FilePath -> IO Music
 prepareMusic path = do
   wav <- readWAVE path
   i <- new $ variable $ source .~ sampleSource wav $ Deck.empty
   linkAudio $ \dt n -> i .- playback dt n
   return i
 
-playMusic :: Music s -> System s ()
+playMusic :: Music -> IO ()
 playMusic m = m .- playing .= True

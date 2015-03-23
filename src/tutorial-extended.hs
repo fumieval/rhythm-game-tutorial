@@ -1,6 +1,6 @@
-{-# LANGUAGE Rank2Types, ImpredicativeTypes, ViewPatterns #-}
+{-# LANGUAGE Rank2Types, ViewPatterns, FlexibleContexts #-}
 import Call hiding (new')
-import Call.Util.Deck as Deck
+import Audiovisual.Deck as Deck
 import Control.Lens
 import Control.Monad.State.Strict
 import Data.Foldable (foldMap)
@@ -9,12 +9,11 @@ import Data.Set (Set)
 import System.IO.Unsafe
 import Data.List
 import Data.List.Split (splitWhen)
-import Call.Util.Text as Text
+import Audiovisual.Text as Text
 import Data.Functor.Request
 import Control.Object
 
-gameMain :: System s ()
-gameMain = do
+main = runCallDefault $ do
   setFPS 60
   music <- prepareMusic "assets/Monoidal Purity.wav"
 
@@ -29,7 +28,7 @@ gameMain = do
   linkPicture $ \dt -> do
     [l0, l1, l2] <- forM [0..2] $ \i -> renderLane <$> (timings .- use (ix i)) <*> getPosition music
     s <- score .- get
-    ef <- effects .- gatherFst id (apprises (request dt))
+    ef <- effects .- apprises (request dt) id mempty
     return $ translate (V2 (-120) 0) l0
       <> translate (V2 0 0) l1
       <> translate (V2 120 0) l2
@@ -49,12 +48,11 @@ gameMain = do
     _ -> return () -- Discard the other events
 
   playMusic music
+  stand
 
-main = runSystemDefault (gameMain >> stand)
+type Music = Instance (StateT (Deck Stereo) IO) IO
 
-type Music s = Instance (StateT Deck (System s)) (System s)
-
-prepareMusic :: FilePath -> System s (Music s)
+prepareMusic :: Call => FilePath -> IO Music
 prepareMusic path = do
   wav <- readWAVE path
   i <- new $ variable $ source .~ sampleSource wav $ Deck.empty
@@ -84,10 +82,10 @@ renderLane ts t = mconcat [color blue $ circles (phases ts 1 t)
     , V2 320 480 `translate` color black (bitmap circle_png) -- criterion
     ]
 
-getPosition :: Music s -> System s Time
+getPosition :: Music -> IO Time
 getPosition m = m .- use pos
 
-playMusic :: Music s -> System s ()
+playMusic :: Music -> IO ()
 playMusic m = m .- playing .= True
 
 parseScore :: Time -> String -> [Set Time]

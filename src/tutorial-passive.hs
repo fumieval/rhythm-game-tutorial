@@ -1,6 +1,6 @@
-{-# LANGUAGE Rank2Types, ImpredicativeTypes #-}
+{-# LANGUAGE Rank2Types, FlexibleContexts #-}
 import Call
-import Call.Util.Deck as Deck
+import Audiovisual.Deck as Deck
 import Control.Lens
 import Control.Monad.State.Strict
 import Data.Foldable (foldMap)
@@ -10,8 +10,7 @@ import System.IO.Unsafe
 import Data.List
 import Data.List.Split (splitWhen)
 
-gameMain :: System s ()
-gameMain = do
+main = runCallDefault $ do
   music <- prepareMusic "assets/Monoidal Purity.wav"
 
   allTimings <- liftIO $ (!!0) <$> parseScore (60/160*4) <$> readFile "assets/Monoidal Purity.txt"
@@ -20,11 +19,11 @@ gameMain = do
 
   playMusic music
 
-main = runSystemDefault (gameMain >> stand)
+  stand
 
-type Music s = Instance (StateT Deck (System s)) (System s)
+type Music = Instance (StateT (Deck Stereo) IO) IO
 
-prepareMusic :: FilePath -> System s (Music s)
+prepareMusic :: Call => FilePath -> IO Music
 prepareMusic path = do
   wav <- readWAVE path
   i <- new $ variable $ source .~ sampleSource wav $ Deck.empty
@@ -50,10 +49,10 @@ renderLane ts t = mconcat [color blue $ circles (phases ts 1 t)
     , V2 320 480 `translate` color black (bitmap circle_png) -- criterion
     ]
 
-getPosition :: Music s -> System s Time
+getPosition :: Music -> IO Time
 getPosition m = m .- use pos
 
-playMusic :: Music s -> System s ()
+playMusic :: Music -> IO ()
 playMusic m = m .- playing .= True
 
 parseScore :: Time -> String -> [Set Time]
